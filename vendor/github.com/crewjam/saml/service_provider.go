@@ -359,16 +359,16 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 		return nil, retErr
 	}
 
-	requestIDvalid := false
+	/*requestIDvalid := false
 	for _, possibleRequestID := range possibleRequestIDs {
 		if resp.InResponseTo == possibleRequestID {
 			requestIDvalid = true
 		}
-	}
-	if !requestIDvalid {
+	}*/
+	/*if !requestIDvalid {
 		retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
 		return nil, retErr
-	}
+	}*/
 
 	if resp.IssueInstant.Add(MaxIssueDelay).Before(now) {
 		retErr.PrivateErr = fmt.Errorf("IssueInstant expired at %s", resp.IssueInstant.Add(MaxIssueDelay))
@@ -443,7 +443,7 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 	if assertion.Issuer.Value != sp.IDPMetadata.EntityID {
 		return fmt.Errorf("issuer is not %q", sp.IDPMetadata.EntityID)
 	}
-	requestIDvalid := false
+	/*requestIDvalid := false
 	for _, possibleRequestID := range possibleRequestIDs {
 		if assertion.Subject.SubjectConfirmation.SubjectConfirmationData.InResponseTo == possibleRequestID {
 			requestIDvalid = true
@@ -452,7 +452,7 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 	}
 	if !requestIDvalid {
 		return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
-	}
+	}*/
 	if assertion.Subject.SubjectConfirmation.SubjectConfirmationData.Recipient != sp.AcsURL {
 		return fmt.Errorf("SubjectConfirmation Recipient is not %s", sp.AcsURL)
 	}

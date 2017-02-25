@@ -36,8 +36,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/crewjam/saml/samlsp"
 	"github.com/crewjam/saml"
+	"github.com/crewjam/saml/samlsp"
 	jwt "github.com/dgrijalva/jwt-go"
 
 	"github.com/gravitational/teleport/lib/auth"
@@ -70,10 +70,6 @@ type Handler struct {
 	sessionStreamPollPeriod time.Duration
 	sp                      *samlsp.Middleware
 }
-
-
-
-
 
 // HandlerOption is a functional argument - an option that can be passed
 // to NewHandler function
@@ -123,12 +119,12 @@ func (r *RewritingHandler) Close() error {
 }
 
 func randomBytes(n int) []byte {
- 	rv := make([]byte, n)
- 	if _, err := saml.RandReader.Read(rv); err != nil {
- 		panic(err)
- 	}
- 	return rv
- }
+	rv := make([]byte, n)
+	if _, err := saml.RandReader.Read(rv); err != nil {
+		panic(err)
+	}
+	return rv
+}
 
 // NewHandler returns a new instance of web proxy handler
 func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
@@ -138,22 +134,22 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	
-	key, _ := ioutil.ReadFile("/etc/teleport/sp.key")
- 	cert, _ := ioutil.ReadFile("/etc/teleport/sp.cert")
- 	tmpsp, _ := samlsp.New(samlsp.Options{
- 		IDPMetadataURL: "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
- 		URL:            "https://auth2.dashlane.com:3080/v1/webapi",
- 		Key:            string(key),
- 		Certificate:    string(cert),
- 	})
 
+	key, _ := ioutil.ReadFile("/etc/teleport/sp.key")
+	cert, _ := ioutil.ReadFile("/etc/teleport/sp.cert")
+	tmpsp, _ := samlsp.New(samlsp.Options{
+		IDPMetadataURL: "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
+		URL:            "https://auth2.dashlane.com:3080/v1/webapi",
+		Key:            string(key),
+		Certificate:    string(cert),
+	})
+	tmpsp.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
+	// tmpsp.AuthnNameIDFormat = UnspecifiedNameIDFormat
 	h := &Handler{
 		cfg:  cfg,
 		auth: lauth,
 		sp:   tmpsp,
 	}
-
 
 	for _, o := range opts {
 		if err := o(h); err != nil {
@@ -369,7 +365,7 @@ func (m *Handler) oidcLoginWeb(w http.ResponseWriter, r *http.Request, p httprou
 	if clientRedirectURL == "" {
 		return nil, trace.BadParameter("missing redirect_url query parameter")
 	}
-	connectorID := query.Get("connector_id")
+	connectorID := query.Get("")
 	if connectorID == "" {
 		return nil, trace.BadParameter("missing connector_id query parameter")
 	}
@@ -451,16 +447,16 @@ func (m *Handler) getPossibleRequestIDs(r *http.Request) []string {
 			continue
 		}
 		log.Printf("getPossibleRequestIDs: cookie: %s", cookie.String())
-		token, err := jwt.Parse(cookie.Value, func(t *jwt.Token) (interface{}, error) {
+		/* token, _ := jwt.Parse(cookie.Value, func(t *jwt.Token) (interface{}, error) {
 			secretBlock, _ := pem.Decode([]byte(m.sp.ServiceProvider.Key))
 			return secretBlock.Bytes, nil
 		})
-		if err != nil || !token.Valid {
+		 if err != nil || !token.Valid {
 			log.Printf("... invalid token %s", err)
 			continue
 		}
 		claims := token.Claims.(jwt.MapClaims)
-		rv = append(rv, claims["id"].(string))
+		rv = append(rv, claims["id"].(string)) */
 	}
 
 	// If IDP initiated requests are allowed, then we can expect an empty response ID.
@@ -537,14 +533,23 @@ func (m *Handler) Authorize(w http.ResponseWriter, r *http.Request, assertion *s
 	if err != nil {
 		panic(err)
 	}
+	/* if (claims.Attributes['uid'])
+		log.Infof("oidcCallback redirecting to web browser")
+		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
+			return nil, trace.Wrap(err)
+		}
+		http.Redirect(w, r, response.Req.ClientRedirectURL, http.StatusFound)
+		return nil, nil
+	} */
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    signedToken,
 		MaxAge:   int(CookieMaxAge.Seconds()),
 		HttpOnly: false,
-		Path:     "/",
+		Path:     "/v1/webapi/saml/auth", // v1/webapi/saml/acs",
 	})
+	//
 
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
@@ -552,24 +557,24 @@ func (m *Handler) Authorize(w http.ResponseWriter, r *http.Request, assertion *s
 // samlConsume is used to validate saml assertions
 func (m *Handler) samlConsume(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
 	r.ParseForm()
- 	assertion, err := m.sp.ServiceProvider.ParseResponse(r, m.getPossibleRequestIDs(r))
- 	if err != nil {
- 		if parseErr, ok := err.(*saml.InvalidResponseError); ok {
- 			log.Printf("RESPONSE: ===\n%s\n===\nNOW: %s\nERROR: %s",
- 				parseErr.Response, parseErr.Now, parseErr.PrivateErr)
- 		}
- 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)	
+	assertion, err := m.sp.ServiceProvider.ParseResponse(r, m.getPossibleRequestIDs(r))
+	if err != nil {
+		if parseErr, ok := err.(*saml.InvalidResponseError); ok {
+			log.Printf("RESPONSE: ===\n%s\n===\nNOW: %s\nERROR: %s",
+				parseErr.Response, parseErr.Now, parseErr.PrivateErr)
+		}
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return nil, nil
 	}
 	m.Authorize(w, r, assertion)
-	return nil,nil
+	return nil, nil
 }
 
 func (m *Handler) samlMetadata(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
- 	buf, _ := xml.MarshalIndent(m.sp.ServiceProvider.Metadata(), "", "  ")
- 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
- 	w.Write(buf)
- 	return nil, nil
+	buf, _ := xml.MarshalIndent(m.sp.ServiceProvider.Metadata(), "", "  ")
+	w.Header().Set("Content-Type", "application/samlmetadata+xml")
+	w.Write(buf)
+	return nil, nil
 }
 
 func (m *Handler) samlAuth(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
@@ -577,6 +582,7 @@ func (m *Handler) samlAuth(w http.ResponseWriter, r *http.Request, p httprouter.
 
 	if m.sp.IsAuthorized(r) {
 		message("kapou")
+
 		fmt.Fprintf(w, "Hello, %s!\nGroups:", r.Header.Get("X-Saml-Cn"))
 		// groups := r.Header["X-Saml-Blahgroup"]
 		for _, group := range r.Header["X-Saml-Blahgroup"] {
@@ -623,7 +629,7 @@ func (m *Handler) samlAuth(w http.ResponseWriter, r *http.Request, p httprouter.
 		Value:    signedState,
 		MaxAge:   int(saml.MaxIssueDelay.Seconds()),
 		HttpOnly: false,
-		Path:     "/v1/webapi/saml/acs",
+		Path:     "/", // /v1/webapi/saml/acs",
 	})
 
 	if binding == saml.HTTPRedirectBinding {
@@ -646,8 +652,6 @@ func (m *Handler) samlAuth(w http.ResponseWriter, r *http.Request, p httprouter.
 	}
 	panic("not reached")
 }
-
-
 
 // ConstructSSHResponse creates a special SSH response for SSH login method
 // that encodes everything using the client's secret key

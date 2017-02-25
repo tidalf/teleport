@@ -87,6 +87,12 @@ type InitConfig struct {
 	// Access is service controlling access to resources
 	Access services.Access
 
+	// ClusterAuthPreferenceService is a service to get and set authentication preferences.
+	ClusterAuthPreferenceService services.ClusterAuthPreference
+
+	// UniversalSecondFactorService is a service to get and set universal second factor settings.
+	UniversalSecondFactorService services.UniversalSecondFactorSettings
+
 	// Roles is a set of roles to create
 	Roles []services.Role
 
@@ -94,8 +100,12 @@ type InitConfig struct {
 	// environments where paranoid security is not needed
 	StaticTokens []services.ProvisionToken
 
-	// U2F is the configuration of the U2F 2 factor authentication
-	U2F services.U2F
+	// AuthPreference defines the authentication type (local, oidc) and second
+	// factor (off, otp, u2f) passed in from a configuration file.
+	AuthPreference services.AuthPreference
+
+	// U2F defines U2F application ID and any facets passed in from a configuration file.
+	U2F services.UniversalSecondFactor
 }
 
 // Init instantiates and configures an instance of AuthServer
@@ -125,6 +135,24 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 	// we skip certain configuration if 'seed_config' is set to true
 	// and this is NOT the first time teleport starts on this machine
 	skipConfig := seedConfig && !firstStart
+
+	// upon first start, set the cluster auth prerference from the configuration file
+	// and create a resource on the backend, after that always read from the backend
+	if firstStart {
+		log.Infof("Initializing Cluster Authentication Preference: %v", cfg.AuthPreference)
+		err = asrv.SetClusterAuthPreference(cfg.AuthPreference)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+
+		if cfg.U2F != nil {
+			log.Infof("Initializing Universal Second Factor Settings: %v", cfg.U2F)
+			err = asrv.SetUniversalSecondFactor(cfg.U2F)
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+		}
+	}
 
 	// add trusted authorities from the configuration into the trust backend:
 	keepMap := make(map[string]int, 0)
@@ -260,7 +288,10 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 			}
 		}
 	}
-	// add OIDC connectors to the back-end:
+
+	// add OIDC connectors to the back-end. we always add connectors to the backend
+	// because settings can come from legacy configuration so we keep doing this
+	// until we remove support for legacy formats.
 	keepMap = make(map[string]int, 0)
 	if !skipConfig {
 		log.Infof("Initializing OIDC connectors")
@@ -284,6 +315,15 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 				}
 				log.Infof("removed OIDC connector '%s'", connector.GetName())
 			}
+		}
+	}
+
+	// migrate u2f settings to the backend. we do this because settings can come from legacy
+	// configuration so always push to the backend until we remove support for the legacy format.
+	if cfg.U2F != nil {
+		err = asrv.SetUniversalSecondFactor(cfg.U2F)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
 		}
 	}
 

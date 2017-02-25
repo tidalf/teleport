@@ -1717,7 +1717,7 @@ webpackJsonp([0],[
 	    _actions3.default.start(_constants.TRYING_TO_INIT_APP);
 
 	    // get the list of available clusters        
-	    actions.fetchSites().then(function (masterSiteId) {
+	    return actions.fetchSites().then(function (masterSiteId) {
 	      siteId = siteId || masterSiteId;
 	      _reactor2.default.dispatch(_actionTypes.TLPT_APP_SET_SITE_ID, siteId);
 	      // fetch nodes and active sessions 
@@ -6242,10 +6242,10 @@ webpackJsonp([0],[
 	    var data = this.sortAndFilter(nodeRecords);
 	    return _react2.default.createElement(
 	      'div',
-	      { className: 'grv-nodes' },
+	      { className: 'grv-nodes m-t' },
 	      _react2.default.createElement(
 	        'div',
-	        { className: 'grv-flex grv-header m-t', style: { justifyContent: "space-between" } },
+	        { className: 'grv-flex grv-header', style: { justifyContent: "space-between" } },
 	        _react2.default.createElement(
 	          'h2',
 	          { className: 'text-center no-margins' },
@@ -7749,7 +7749,7 @@ webpackJsonp([0],[
 
 	    return _react2.default.createElement(
 	      'div',
-	      { className: 'grv-sessions-stored' },
+	      { className: 'grv-sessions-stored m-t' },
 	      _react2.default.createElement(
 	        'div',
 	        { className: 'grv-header' },

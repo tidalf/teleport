@@ -429,7 +429,7 @@ func (m *Handler) oidcLoginWeb(w http.ResponseWriter, r *http.Request, p httprou
 	if clientRedirectURL == "" {
 		return nil, trace.BadParameter("missing redirect_url query parameter")
 	}
-	connectorID := query.Get("")
+	connectorID := query.Get("connector_id")
 	if connectorID == "" {
 		return nil, trace.BadParameter("missing connector_id query parameter")
 	}

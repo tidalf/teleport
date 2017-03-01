@@ -1041,7 +1041,7 @@ func (g *GetCommand) getCollection(client auth.ClientI) (collection, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		return &connectorCollection{connectors: connectors}, nil
+		return &connectorCollection{connectorsSAML: connectors}, nil
 	case services.KindReverseTunnel:
 		tunnels, err := client.GetReverseTunnels()
 		if err != nil {

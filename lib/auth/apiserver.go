@@ -934,11 +934,6 @@ type upsertSAMLConnectorRawReq struct {
 	TTL       time.Duration   `json:"ttl"`
 }
 
-type upsertSAMLConnectorRawReq struct {
-	Connector json.RawMessage `json:"connector"`
-	TTL       time.Duration   `json:"ttl"`
-}
-
 func (s *APIServer) upsertSAMLConnector(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
 	var req *upsertSAMLConnectorRawReq
 	if err := httplib.ReadJSON(r, &req); err != nil {

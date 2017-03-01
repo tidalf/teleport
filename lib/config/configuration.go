@@ -322,7 +322,7 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 	// the cluster authentication preferences and override u2f and oidc settings set
 	// in the above two blocks
 	if fc.Auth.Authentication != nil {
-		authPreference, oidcConnector, universalSecondFactor, err := fc.Auth.Authentication.Parse()
+		authPreference, oidcConnector, samlConnector, universalSecondFactor, err := fc.Auth.Authentication.Parse()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -333,11 +333,10 @@ func ApplyFileConfig(fc *FileConfig, cfg *service.Config) error {
 		if oidcConnector != nil {
 			cfg.OIDCConnectors = []services.OIDCConnector{oidcConnector}
 		}
-		
+
 		if samlConnector != nil {
 			cfg.SAMLConnectors = []services.SAMLConnector{samlConnector}
 		}
-
 
 		// set u2f settings, note this will override anything set with the old format
 		if universalSecondFactor != nil {

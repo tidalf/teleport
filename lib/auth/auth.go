@@ -25,11 +25,14 @@ package auth
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/crewjam/saml"
+	"github.com/crewjam/saml/samlsp"
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/backend"
 	"github.com/gravitational/teleport/lib/defaults"
@@ -950,19 +953,19 @@ func (a *AuthServer) ValidateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 
 	return response, nil
 }
-func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*saml.Client, error) {
+func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*samlsp.Middleware, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	config := saml.ClientConfig{
-		RedirectURL: conn.GetRedirectURL(),
-		Credentials: saml.ClientCredentials{
-			ID:     conn.GetClientID(),
-			Secret: conn.GetClientSecret(),
-		},
-		// open id notifies provider that we are using SAML scopes
-		Scope: utils.Deduplicate(append([]string{"openid", "email"}, conn.GetScope()...)),
+	key, _ := ioutil.ReadFile("/etc/teleport/sp.key")
+	cert, _ := ioutil.ReadFile("/etc/teleport/sp.cert")
+	config := samlsp.Options{
+		IDPMetadataURL: "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
+		URL:            "https://auth2.dashlane.com:3080/v1/webapi",
+		Key:            string(key),
+		Certificate:    string(cert),
 	}
+	// config.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
 
 	clientPack, ok := s.samlClients[conn.GetName()]
 	if ok && samlConfigsEqual(clientPack.config, config) {
@@ -970,12 +973,12 @@ func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*saml.Client, e
 	}
 	delete(s.samlClients, conn.GetName())
 
-	client, err := saml.NewClient(config)
+	client, err := samlsp.New(config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	client.SyncProviderConfig(conn.GetIssuerURL())
+	// client.SyncProviderConfig(conn.GetIssuerURL())
 
 	s.samlClients[conn.GetName()] = &samlClient{client: client, config: config}
 
@@ -991,34 +994,36 @@ func (s *AuthServer) DeleteSAMLConnector(connectorName string) error {
 }
 
 func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.SAMLAuthRequest, error) {
-	connector, err := s.Identity.GetSAMLConnector(req.ConnectorID, true)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	samlClient, err := s.getSAMLClient(connector)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	/*
+		connector, err := s.Identity.GetSAMLConnector(req.ConnectorID, true)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		samlClient, err := s.getSAMLClient(connector)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 
-	token, err := utils.CryptoRandomHex(TokenLenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	req.StateToken = token
-
-	oauthClient, err := samlClient.OAuthClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+		token, err := utils.CryptoRandomHex(TokenLenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		req.StateToken = token
+	*/
+	// oauthClient, err := samlClient.OAuthClient()
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
 	// online is SAML online scope, "select_account" forces user to always select account
-	redirectURL := oauthClient.AuthCodeURL(req.StateToken, "online", "select_account")
-	req.RedirectURL = redirectURL
-
-	err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &req, nil
+	// redirectURL := oauthClient.AuthCodeURL(req.StateToken, "online", "select_account")
+	// req.RedirectURL = redirectURL
+	/*
+		err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return &req, nil */
+	return nil, nil
 }
 
 // SAMLAuthResponse is returned when auth server validated callback parameters
@@ -1039,8 +1044,8 @@ type SAMLAuthResponse struct {
 	HostSigners []services.CertAuthority `json:"host_signers"`
 }
 
-func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *saml.Identity, claims jose.Claims) error {
-	roles := connector.MapClaims(claims)
+func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *saml.Assertion, claims jose.Claims) error {
+	/* roles := connector.MapClaims(claims)
 	if len(roles) == 0 {
 		log.Warningf("[SAML] could not find any of expected claims: %v in the set returned by provider %v: %v",
 			strings.Join(connector.GetClaims(), ","), connector.GetName(), strings.Join(services.GetClaimNames(claims), ","))
@@ -1090,7 +1095,8 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *sam
 			return trace.AlreadyExists("user %v already exists and is not SAML user", existingUser.GetName())
 		}
 	}
-	return a.UpsertUser(user)
+	return a.UpsertUser(user) */
+	return nil
 }
 
 // ValidateSAMLAuthCallback is called by the proxy to check SAML query parameters
@@ -1122,100 +1128,104 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if connector.GetName() == "" {
 
-	samlClient, err := a.getSAMLClient(connector)
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
+	/*
+		samlClient, err := a.getSAMLClient(connector)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		} */
 
-	tok, err := samlClient.ExchangeAuthCode(code)
+	/* tok, err := samlClient.ExchangeAuthCode(code)
 	if err != nil {
 		return nil, trace.OAuth2(
 			oauth2.ErrorUnsupportedResponseType,
 			"unable to verify auth code with issuer", q)
-	}
-
-	claims, err := tok.Claims()
-	if err != nil {
-		return nil, trace.OAuth2(
-			oauth2.ErrorUnsupportedResponseType, "unable to construct claims", q)
-	}
-
-	ident, err := saml.IdentityFromClaims(claims)
-	if err != nil {
-		return nil, trace.OAuth2(
-			oauth2.ErrorUnsupportedResponseType, "unable to convert claims to identity", q)
-	}
-
-	log.Debugf("[IDENTITY] %v expires at: %v", ident.Email, ident.ExpiresAt)
-
-	response := &SAMLAuthResponse{
-		Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: ident.Email},
-		Req:      *req,
-	}
-
-	if len(connector.GetClaimsToRoles()) != 0 {
-		if err := a.createSAMLUser(connector, ident, claims); err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-
-	if !req.CheckUser {
-		return response, nil
-	}
-
-	user, err := a.Identity.GetUserBySAMLIdentity(services.SAMLIdentity{
-		ConnectorID: req.ConnectorID, Email: ident.Email})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	response.Username = user.GetName()
-
-	var roles services.RoleSet
-	roles, err = services.FetchRoles(user.GetRoles(), a.Access)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	sessionTTL := roles.AdjustSessionTTL(utils.ToTTL(a.clock, ident.ExpiresAt))
-	bearerTokenTTL := utils.MinTTL(BearerTokenTTL, sessionTTL)
-
-	if req.CreateWebSession {
-		sess, err := a.NewWebSession(user.GetName())
+	} */
+	/*
+		claims, err := tok.Claims()
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.OAuth2(
+				oauth2.ErrorUnsupportedResponseType, "unable to construct claims", q)
 		}
-		// session will expire based on identity TTL and allowed session TTL
-		sess.SetExpiryTime(a.clock.Now().UTC().Add(sessionTTL))
-		// bearer token will expire based on the expected session renewal
-		sess.SetBearerTokenExpiryTime(a.clock.Now().UTC().Add(bearerTokenTTL))
-		if err := a.UpsertWebSession(user.GetName(), sess); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		response.Session = sess
-	}
 
-	if len(req.PublicKey) != 0 {
-		certTTL := utils.MinTTL(utils.ToTTL(a.clock, ident.ExpiresAt), req.CertTTL)
-		allowedLogins, err := roles.CheckLogins(certTTL)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		cert, err := a.GenerateUserCert(req.PublicKey, user.GetName(), allowedLogins, certTTL)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		response.Cert = cert
+			ident, err := saml.IdentityFromClaims(claims)
+			if err != nil {
+				return nil, trace.OAuth2(
+					oauth2.ErrorUnsupportedResponseType, "unable to convert claims to identity", q)
+			}
 
-		authorities, err := a.GetCertAuthorities(services.HostCA, false)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		for _, authority := range authorities {
-			response.HostSigners = append(response.HostSigners, authority)
-		}
-	}
+			log.Debugf("[IDENTITY] %v expires at: %v", ident.Email, ident.ExpiresAt)
 
-	return response, nil
+			response := &SAMLAuthResponse{
+				Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: ident.Email},
+				Req:      *req,
+			}
+
+			if len(connector.GetClaimsToRoles()) != 0 {
+				if err := a.createSAMLUser(connector, ident, claims); err != nil {
+					return nil, trace.Wrap(err)
+				}
+			}
+
+			if !req.CheckUser {
+				return response, nil
+			}
+
+			user, err := a.Identity.GetUserBySAMLIdentity(services.SAMLIdentity{
+				ConnectorID: req.ConnectorID, Email: ident.Email})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			response.Username = user.GetName()
+
+			var roles services.RoleSet
+			roles, err = services.FetchRoles(user.GetRoles(), a.Access)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			sessionTTL := roles.AdjustSessionTTL(utils.ToTTL(a.clock, ident.ExpiresAt))
+			bearerTokenTTL := utils.MinTTL(BearerTokenTTL, sessionTTL)
+
+			if req.CreateWebSession {
+				sess, err := a.NewWebSession(user.GetName())
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				// session will expire based on identity TTL and allowed session TTL
+				sess.SetExpiryTime(a.clock.Now().UTC().Add(sessionTTL))
+				// bearer token will expire based on the expected session renewal
+				sess.SetBearerTokenExpiryTime(a.clock.Now().UTC().Add(bearerTokenTTL))
+				if err := a.UpsertWebSession(user.GetName(), sess); err != nil {
+					return nil, trace.Wrap(err)
+				}
+				response.Session = sess
+			}
+
+			if len(req.PublicKey) != 0 {
+				certTTL := utils.MinTTL(utils.ToTTL(a.clock, ident.ExpiresAt), req.CertTTL)
+				allowedLogins, err := roles.CheckLogins(certTTL)
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				cert, err := a.GenerateUserCert(req.PublicKey, user.GetName(), allowedLogins, certTTL)
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				response.Cert = cert
+
+				authorities, err := a.GetCertAuthorities(services.HostCA, false)
+				if err != nil {
+					return nil, trace.Wrap(err)
+				}
+				for _, authority := range authorities {
+					response.HostSigners = append(response.HostSigners, authority)
+				}
+			}
+
+			return response, nil */
+	return nil, nil
 }
 
 func (a *AuthServer) DeleteRole(name string) error {
@@ -1286,29 +1296,30 @@ func oidcConfigsEqual(a, b oidc.ClientConfig) bool {
 
 // samlClient is internal structure that stores client and it's config
 type samlClient struct {
-	client *saml.Client
-	config saml.ClientConfig
+	client *samlsp.Middleware
+	config samlsp.Options
 }
 
 // samlConfigsEqual is a struct that helps us to verify that
 // two saml configs are equal
-func samlConfigsEqual(a, b saml.ClientConfig) bool {
-	if a.RedirectURL != b.RedirectURL {
-		return false
-	}
-	if a.Credentials.ID != b.Credentials.ID {
-		return false
-	}
-	if a.Credentials.Secret != b.Credentials.Secret {
-		return false
-	}
-	if len(a.Scope) != len(b.Scope) {
-		return false
-	}
-	for i := range a.Scope {
-		if a.Scope[i] != b.Scope[i] {
+func samlConfigsEqual(a, b samlsp.Options) bool {
+	/*
+		if a.RedirectURL != b.RedirectURL {
 			return false
 		}
-	}
+		if a.Credentials.ID != b.Credentials.ID {
+			return false
+		}
+		if a.Credentials.Secret != b.Credentials.Secret {
+			return false
+		}
+		if len(a.Scope) != len(b.Scope) {
+			return false
+		}
+		for i := range a.Scope {
+			if a.Scope[i] != b.Scope[i] {
+				return false
+			}
+		} */
 	return true
 }

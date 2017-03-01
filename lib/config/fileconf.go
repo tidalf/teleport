@@ -428,20 +428,20 @@ func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCCo
 		SecondFactor: a.SecondFactor,
 	})
 	if err != nil {
-		return nil, nil, nil, trace.Wrap(err)
+		return nil, nil, nil, nil, trace.Wrap(err)
 	}
 
 	// check to make sure the configuration is valid
 	err = ap.CheckAndSetDefaults()
 	if err != nil {
-		return nil, nil, nil, trace.Wrap(err)
+		return nil, nil, nil, nil, trace.Wrap(err)
 	}
 
 	var oidcConnector services.OIDCConnector
 	if a.OIDC != nil {
 		oidcConnector, err = a.OIDC.Parse()
 		if err != nil {
-			return nil, nil, nil, trace.Wrap(err)
+			return nil, nil, nil, nil, trace.Wrap(err)
 		}
 	}
 
@@ -449,7 +449,7 @@ func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCCo
 	if a.SAML != nil {
 		samlConnector, err = a.SAML.Parse()
 		if err != nil {
-			return nil, nil, nil, trace.Wrap(err)
+			return nil, nil, nil, nil, trace.Wrap(err)
 		}
 	}
 
@@ -457,7 +457,7 @@ func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCCo
 	if a.U2F != nil {
 		universalSecondFactor, err = a.U2F.Parse()
 		if err != nil {
-			return nil, nil, nil, trace.Wrap(err)
+			return nil, nil, nil, nil, trace.Wrap(err)
 		}
 	}
 
@@ -714,7 +714,7 @@ func (o *SAMLConnector) Parse() (services.SAMLConnector, error) {
 	return v2, nil
 }
 
-/ Parse parses config struct into services connector and checks if it's valid
+// Parse parses config struct into services connector and checks if it's valid
 func (o *OIDCConnector) Parse() (services.OIDCConnector, error) {
 	if o.Display == "" {
 		o.Display = o.ID

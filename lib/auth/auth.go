@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"strings"
+	// "strings"
 	"sync"
 	"time"
 
@@ -776,7 +776,7 @@ type OIDCAuthResponse struct {
 }
 
 func (a *AuthServer) createOIDCUser(connector services.OIDCConnector, ident *oidc.Identity, claims jose.Claims) error {
-	roles := {"admin","users"} // connector.MapClaims(claims)
+	roles := []string{"admin","users"} // connector.MapClaims(claims)
 	/* if len(roles) == 0 {
 		log.Warningf("[OIDC] could not find any of expected claims: %v in the set returned by provider %v: %v",
 			strings.Join(connector.GetClaims(), ","), connector.GetName(), strings.Join(services.GetClaimNames(claims), ","))

@@ -245,15 +245,15 @@ const UserSpecV2SchemaTemplate = `{
       "type": "array",
       "items": %v
     },
-	"saml_identities": {
-      "type": "array",
-      "items": %v
-    },
     "status": %v,
     "created_by": %v%v
   }
 }`
 
+/*    "saml_identities": {
+      "type": "array",
+      "items": %v
+    }, */
 // GetObject returns raw object data, used for migrations
 func (u *UserV2) GetRawObject() interface{} {
 	return u.rawObject

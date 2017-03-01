@@ -134,6 +134,24 @@ func (s *IdentityService) GetUserByOIDCIdentity(id services.OIDCIdentity) (servi
 	return nil, trace.NotFound("user with identity %v not found", &id)
 }
 
+// GetUserBySAMLIdentity returns a user by it's specified SAML Identity, returns first
+// user specified with this identity
+func (s *IdentityService) GetUserBySAMLIdentity(id services.SAMLIdentity) (services.User, error) {
+	users, err := s.GetUsers()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, u := range users {
+		for _, uid := range u.GetIdentitiesSAML() {
+			if uid.Equals(&id) {
+				return u, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("user with identity %v not found", &id)
+}
+
+
 // DeleteUser deletes a user with all the keys from the backend
 func (s *IdentityService) DeleteUser(user string) error {
 	err := s.backend.DeleteBucket([]string{"web", "users"}, user)
@@ -381,6 +399,7 @@ var (
 	userTokensPath   = []string{"addusertokens"}
 	u2fRegChalPath   = []string{"adduseru2fchallenges"}
 	connectorsPath   = []string{"web", "connectors", "oidc", "connectors"}
+	connectorsPathSAML   = []string{"web", "connectors", "oidc", "connectors"}
 	authRequestsPath = []string{"web", "connectors", "oidc", "requests"}
 )
 

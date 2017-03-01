@@ -18,6 +18,8 @@ type User interface {
 	GetName() string
 	// GetIdentities returns a list of connected OIDCIdentities
 	GetIdentities() []OIDCIdentity
+	// GetIdentitiesSAML returns a list of connected sAMLIdentities
+	GetIdentitiesSAML() []SAMLIdentity
 	// GetRoles returns a list of roles assigned to user
 	GetRoles() []string
 	// String returns user
@@ -189,6 +191,10 @@ func (u *UserV2) WebSessionInfo(allowedLogins []string) interface{} {
 
 // UserSpecV2 is a specification for V2 user
 type UserSpecV2 struct {
+	// SAMLIdentities lists associated OpenID Connect identities
+	// that let user log in using externally verified identity
+	SAMLIdentities []SAMLIdentity `json:"saml_identities,omitempty"`
+
 	// OIDCIdentities lists associated OpenID Connect identities
 	// that let user log in using externally verified identity
 	OIDCIdentities []OIDCIdentity `json:"oidc_identities,omitempty"`
@@ -211,6 +217,7 @@ func (u *UserV2) V1() *UserV1 {
 	return &UserV1{
 		Name:           u.Metadata.Name,
 		OIDCIdentities: u.Spec.OIDCIdentities,
+		SAMLIdentities: u.Spec.SAMLIdentities,
 		Status:         u.Spec.Status,
 		Expires:        u.Spec.Expires,
 		CreatedBy:      u.Spec.CreatedBy,
@@ -235,6 +242,10 @@ const UserSpecV2SchemaTemplate = `{
       }
     },
     "oidc_identities": {
+      "type": "array",
+      "items": %v
+    },
+	"saml_identities": {
       "type": "array",
       "items": %v
     },
@@ -272,6 +283,16 @@ func (u *UserV2) Equals(other User) bool {
 			return false
 		}
 	}
+	otherIdentitiesSAML := other.GetIdentitiesSAML()
+	if len(u.Spec.SAMLIdentities) != len(otherIdentitiesSAML) {
+		return false
+	}
+	for i := range u.Spec.SAMLIdentities {
+		if !u.Spec.SAMLIdentities[i].Equals(&otherIdentitiesSAML[i]) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -295,6 +316,11 @@ func (u *UserV2) GetIdentities() []OIDCIdentity {
 	return u.Spec.OIDCIdentities
 }
 
+// GetIdentities returns a list of connected OIDCIdentities
+func (u *UserV2) GetIdentitiesSAML() []SAMLIdentity {
+	return u.Spec.SAMLIdentities
+}
+
 // GetRoles returns a list of roles assigned to user
 func (u *UserV2) GetRoles() []string {
 	return u.Spec.Roles
@@ -316,7 +342,7 @@ func (u *UserV2) GetName() string {
 }
 
 func (u *UserV2) String() string {
-	return fmt.Sprintf("User(name=%v, roles=%v, identities=%v)", u.Metadata.Name, u.Spec.Roles, u.Spec.OIDCIdentities)
+	return fmt.Sprintf("User(name=%v, roles=%v, identities=%v,%v)", u.Metadata.Name, u.Spec.Roles, u.Spec.OIDCIdentities, u.Spec.SAMLIdentities)
 }
 
 func (u *UserV2) SetLocked(until time.Time, reason string) {
@@ -357,6 +383,10 @@ type UserV1 struct {
 	// that let user log in using externally verified identity
 	OIDCIdentities []OIDCIdentity `json:"oidc_identities"`
 
+	// SAMLIdentities lists associated SAML identities
+	// that let user log in using externally verified identity
+	SAMLIdentities []SAMLIdentity `json:"saml_identities"`
+
 	// Status is a login status of the user
 	Status LoginStatus `json:"status"`
 
@@ -380,6 +410,11 @@ func (u *UserV1) Check() error {
 			return trace.Wrap(err)
 		}
 	}
+	for _, id := range u.SAMLIdentities {
+		if err := id.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 
@@ -399,6 +434,7 @@ func (u *UserV1) V2() *UserV2 {
 		},
 		Spec: UserSpecV2{
 			OIDCIdentities: u.OIDCIdentities,
+			SAMLIdentities: u.SAMLIdentities,
 			Status:         u.Status,
 			Expires:        u.Expires,
 			CreatedBy:      u.CreatedBy,

@@ -72,6 +72,10 @@ type InitConfig struct {
 	// in configuration, so auth server will init the tunnels on the first start
 	OIDCConnectors []services.OIDCConnector
 
+	// SAMLConnectors is a list of trusted SAML identity providers
+	// in configuration, so auth server will init the tunnels on the first start
+	SAMLConnectors []services.SAMLConnector
+
 	// Trust is a service that manages users and credentials
 	Trust services.Trust
 
@@ -100,7 +104,7 @@ type InitConfig struct {
 	// environments where paranoid security is not needed
 	StaticTokens []services.ProvisionToken
 
-	// AuthPreference defines the authentication type (local, oidc) and second
+	// AuthPreference defines the authentication type (local, oidc, saml) and second
 	// factor (off, otp, u2f) passed in from a configuration file.
 	AuthPreference services.AuthPreference
 
@@ -285,6 +289,35 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 					return nil, nil, trace.Wrap(err)
 				}
 				log.Infof("removed reverse tunnel: '%s'", tunnel.GetClusterName())
+			}
+		}
+	}
+
+	// add SAML connectors to the back-end. we always add connectors to the backend
+	// because settings can come from legacy configuration so we keep doing this
+	// until we remove support for legacy formats.
+	keepMap = make(map[string]int, 0)
+	if !skipConfig {
+		log.Infof("Initializing SAML connectors")
+		for _, connector := range cfg.SAMLConnectors {
+			if err := asrv.UpsertSAMLConnector(connector, 0); err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			log.Infof("created ODIC connector '%s'", connector.GetName())
+			keepMap[connector.GetName()] = 1
+		}
+	}
+	// remove SAML connectors from the backend if they're not
+	// present in the configuration
+	if !seedConfig {
+		connectors, _ := asrv.GetSAMLConnectors(false)
+		for _, connector := range connectors {
+			_, configured := keepMap[connector.GetName()]
+			if !configured {
+				if err = asrv.DeleteSAMLConnector(connector.GetName()); err != nil {
+					return nil, nil, trace.Wrap(err)
+				}
+				log.Infof("removed SAML connector '%s'", connector.GetName())
 			}
 		}
 	}

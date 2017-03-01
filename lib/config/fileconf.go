@@ -94,6 +94,7 @@ var (
 		"reverse_tunnels":    true,
 		"addresses":          true,
 		"oidc_connectors":    true,
+		"saml_connectors":    true,
 		"id":                 true,
 		"issuer_url":         true,
 		"client_id":          true,
@@ -110,6 +111,7 @@ var (
 		"authentication":     true,
 		"second_factor":      false,
 		"oidc":               true,
+		"saml":               true,
 		"display":            false,
 		"scope":              false,
 		"claims_to_roles":    true,
@@ -375,6 +377,10 @@ type Auth struct {
 	// Deprecated: Use OIDC section in Authentication section instead.
 	OIDCConnectors []OIDCConnector `yaml:"oidc_connectors"`
 
+	// SAMLConnectors is a list of trusted OpenID Connect Identity providers
+	// Deprecated: Use OIDC section in Authentication section instead.
+	SAMLConnectors []SAMLConnector `yaml:"saml_connectors"`
+
 	// Configuration for "universal 2nd factor"
 	// Deprecated: Use U2F section in Authentication section instead.
 	U2F U2F `yaml:"u2f,omitempty"`
@@ -409,11 +415,12 @@ type AuthenticationConfig struct {
 	SecondFactor string                 `yaml:"second_factor,omitempty"`
 	U2F          *UniversalSecondFactor `yaml:"u2f,omitempty"`
 	OIDC         *OIDCConnector         `yaml:"oidc,omitempty"`
+	SAML         *SAMLConnector         `yaml:"saml,omitempty"`
 }
 
 // Parse returns the Authentication Configuration in three parts, the AuthPreference (type and second factor) as well
 // as OIDCConnector and UniversalSecondFactor that define how those two are configured (if provided).
-func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCConnector, services.UniversalSecondFactor, error) {
+func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCConnector, services.SAMLConnector, services.UniversalSecondFactor, error) {
 	var err error
 
 	ap, err := services.NewAuthPreference(services.AuthPreferenceSpecV2{
@@ -438,6 +445,14 @@ func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCCo
 		}
 	}
 
+	var samlConnector services.SAMLConnector
+	if a.SAML != nil {
+		samlConnector, err = a.SAML.Parse()
+		if err != nil {
+			return nil, nil, nil, trace.Wrap(err)
+		}
+	}
+
 	var universalSecondFactor services.UniversalSecondFactor
 	if a.U2F != nil {
 		universalSecondFactor, err = a.U2F.Parse()
@@ -446,7 +461,7 @@ func (a *AuthenticationConfig) Parse() (services.AuthPreference, services.OIDCCo
 		}
 	}
 
-	return ap, oidcConnector, universalSecondFactor, nil
+	return ap, oidcConnector, samlConnector, universalSecondFactor, nil
 }
 
 type UniversalSecondFactor struct {
@@ -615,6 +630,31 @@ type ClaimMapping struct {
 	Roles []string `yaml:"roles"`
 }
 
+// SAMLConnector specifies configuration fo Open ID Connect compatible external
+// identity provider, e.g. google in some organisation
+type SAMLConnector struct {
+	// ID is a provider id, 'e.g.' google, used internally
+	ID string `yaml:"id"`
+	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
+	IssuerURL string `yaml:"issuer_url"`
+	// ClientID is id for authentication client (in our case it's our Auth server)
+	ClientID string `yaml:"client_id"`
+	// ClientSecret is used to authenticate our client and should not
+	// be visible to end user
+	ClientSecret string `yaml:"client_secret"`
+	// RedirectURL - Identity provider will use this URL to redirect
+	// client's browser back to it after successfull authentication
+	// Should match the URL on Provider's side
+	RedirectURL string `yaml:"redirect_url"`
+	// Display controls how this connector is displayed
+	Display string `yaml:"display"`
+	// Scope is a list of additional scopes to request from SAML
+	// note that saml and email scopes are always requested
+	Scope []string `yaml:"scope"`
+	// ClaimsToRoles is a list of mappings of claims to roles
+	ClaimsToRoles []ClaimMapping `yaml:"claims_to_roles"`
+}
+
 // OIDCConnector specifies configuration fo Open ID Connect compatible external
 // identity provider, e.g. google in some organisation
 type OIDCConnector struct {
@@ -641,6 +681,40 @@ type OIDCConnector struct {
 }
 
 // Parse parses config struct into services connector and checks if it's valid
+func (o *SAMLConnector) Parse() (services.SAMLConnector, error) {
+	if o.Display == "" {
+		o.Display = o.ID
+	}
+
+	var mappings []services.ClaimMapping
+	for _, c := range o.ClaimsToRoles {
+		roles := make([]string, len(c.Roles))
+		copy(roles, c.Roles)
+		mappings = append(mappings, services.ClaimMapping{
+			Claim: c.Claim,
+			Value: c.Value,
+			Roles: roles,
+		})
+	}
+
+	other := &services.SAMLConnectorV1{
+		ID:            o.ID,
+		Display:       o.Display,
+		IssuerURL:     o.IssuerURL,
+		ClientID:      o.ClientID,
+		ClientSecret:  o.ClientSecret,
+		RedirectURL:   o.RedirectURL,
+		Scope:         o.Scope,
+		ClaimsToRoles: mappings,
+	}
+	v2 := other.V2()
+	if err := v2.Check(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return v2, nil
+}
+
+/ Parse parses config struct into services connector and checks if it's valid
 func (o *OIDCConnector) Parse() (services.OIDCConnector, error) {
 	if o.Display == "" {
 		o.Display = o.ID

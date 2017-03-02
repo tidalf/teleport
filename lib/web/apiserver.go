@@ -220,7 +220,7 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 
 	h.GET("/webapi/saml/metadata", httplib.MakeHandler(h.samlMetadata))
 	h.GET("/webapi/saml/auth", httplib.MakeHandler(h.samlAuth))
-	h.POST("/webapi/saml/acs", httplib.MakeHandler(h.samlConsume))
+	h.POST("/webapi/saml/acs", httplib.MakeHandler(h.samlCallback))
 
 	// U2F related APIs
 	h.GET("/webapi/u2f/signuptokens/:token", httplib.MakeHandler(h.u2fRegisterRequest))

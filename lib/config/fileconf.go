@@ -100,6 +100,7 @@ var (
 		"client_id":          true,
 		"client_secret":      true,
 		"redirect_url":       true,
+		"IDPMetadataURL":       true,
 		"tokens":             true,
 		"region":             true,
 		"table_name":         true,

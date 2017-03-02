@@ -303,7 +303,7 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 			if err := asrv.UpsertSAMLConnector(connector, 0); err != nil {
 				return nil, nil, trace.Wrap(err)
 			}
-			log.Infof("created ODIC connector '%s'", connector.GetName())
+			log.Infof("created SAML connector '%s'", connector.GetName())
 			keepMap[connector.GetName()] = 1
 		}
 	}
@@ -313,7 +313,7 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 		connectors, _ := asrv.GetSAMLConnectors(false)
 		for _, connector := range connectors {
 			_, configured := keepMap[connector.GetName()]
-			if !configured {
+			if !configured && connector.GetClientID()==""  {
 				if err = asrv.DeleteSAMLConnector(connector.GetName()); err != nil {
 					return nil, nil, trace.Wrap(err)
 				}
@@ -342,7 +342,7 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 		connectors, _ := asrv.GetOIDCConnectors(false)
 		for _, connector := range connectors {
 			_, configured := keepMap[connector.GetName()]
-			if !configured {
+			if !configured && connector.GetClientID()!=""{
 				if err = asrv.DeleteOIDCConnector(connector.GetName()); err != nil {
 					return nil, nil, trace.Wrap(err)
 				}

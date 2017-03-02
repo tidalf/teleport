@@ -30,7 +30,11 @@ import (
 	// "strings"
 	"sync"
 	"time"
-
+	"encoding/base64"
+	// "encoding/json"
+	// "encoding/pem"
+	// "encoding/xml"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/crewjam/saml"
 	"github.com/crewjam/saml/samlsp"
 	"github.com/gravitational/teleport"
@@ -977,6 +981,7 @@ func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*samlsp.Middlew
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+        client.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
 
 	// client.SyncProviderConfig(conn.GetIssuerURL())
 
@@ -993,8 +998,16 @@ func (s *AuthServer) DeleteSAMLConnector(connectorName string) error {
 	return s.Identity.DeleteSAMLConnector(connectorName)
 }
 
+func randomBytes(n int) []byte {
+	rv := make([]byte, n)
+	if _, err := saml.RandReader.Read(rv); err != nil {
+		panic(err)
+	}
+	return rv
+}
+
 func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.SAMLAuthRequest, error) {
-	/*
+	
 		connector, err := s.Identity.GetSAMLConnector(req.ConnectorID, true)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -1009,21 +1022,59 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 			return nil, trace.Wrap(err)
 		}
 		req.StateToken = token
-	*/
+	
+	 binding := saml.HTTPRedirectBinding
+	 bindingLocation := samlClient.ServiceProvider.GetSSOBindingLocation(binding)
+	// if bindingLocation == "" {
+	// 	binding = saml.HTTPPostBinding
+	// 	bindingLocation = samlClient.ServiceProvider.GetSSOBindingLocation(binding)
+	// }
+
+	req2, err := samlClient.ServiceProvider.MakeAuthenticationRequest(bindingLocation)
+	if err != nil {
+		// http.Error(w, err.Error(), http.StatusInternalServerError)
+   	log.Debugf("fail in auth request")
+		return nil, nil
+	}
+
+	// relayState is limited to 80 bytes but also must be integrety protected.
+	// this means that we cannot use a JWT because it is way to long. Instead
+	// we set a cookie that corresponds to the state
+	relayState := base64.URLEncoding.EncodeToString(randomBytes(42))
+
+	// secretBlock, _ := pem.Decode([]byte(samlClient.ServiceProvider.Key))
+	state := jwt.New(jwt.GetSigningMethod("HS256"))
+	claims := state.Claims.(jwt.MapClaims)
+	claims["id"] = req2.ID
+	claims["uri"] = "/web" // req.URL.String()
+	// signedState, err := state.SignedString(secretBlock.Bytes)
+	if err != nil {
+		// http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, nil
+	}
+
+        // if binding == saml.HTTPRedirectBinding {
+	redirectURL := req2.Redirect(relayState)
+	  	// w.Header().Add("Location", redirectURL.String())
+		// w.WriteHeader(http.StatusFound)
+       //		return nil, nil
+	// }
+
 	// oauthClient, err := samlClient.OAuthClient()
 	// if err != nil {
 	// 	return nil, trace.Wrap(err)
 	// }
 	// online is SAML online scope, "select_account" forces user to always select account
 	// redirectURL := oauthClient.AuthCodeURL(req.StateToken, "online", "select_account")
-	// req.RedirectURL = redirectURL
-	/*
+	req.RedirectURL = redirectURL.String()
+
+   	log.Debugf("re.RedirectURL %s", req.RedirectURL )
+	
 		err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		return &req, nil */
-	return nil, nil
+		return &req, nil 
 }
 
 // SAMLAuthResponse is returned when auth server validated callback parameters
@@ -1103,17 +1154,12 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *sam
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
 func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-	if error := q.Get("error"); error != "" {
-		return nil, trace.OAuth2(oauth2.ErrorInvalidRequest, error, q)
+	samlresponse := q.Get("SAMLResponse")
+	if samlresponse == "" {
+            return nil,nil
 	}
 
-	code := q.Get("code")
-	if code == "" {
-		return nil, trace.OAuth2(
-			oauth2.ErrorInvalidRequest, "code query param must be set", q)
-	}
-
-	stateToken := q.Get("state")
+	stateToken := q.Get("RelayState")
 	if stateToken == "" {
 		return nil, trace.OAuth2(
 			oauth2.ErrorInvalidRequest, "missing state query param", q)
@@ -1131,12 +1177,12 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	if connector.GetName() == "" {
 
 	}
-	/*
-		samlClient, err := a.getSAMLClient(connector)
+        /* 	
+	samlClient, err := a.getSAMLClient(connector)
 		if err != nil {
 			return nil, trace.Wrap(err)
-		} */
-
+		} 
+         assertion, err := samlClient.ServiceProvider.ParseResponse(samlresponse,"") */
 	/* tok, err := samlClient.ExchangeAuthCode(code)
 	if err != nil {
 		return nil, trace.OAuth2(

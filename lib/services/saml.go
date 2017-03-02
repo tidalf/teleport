@@ -325,12 +325,12 @@ func (o *SAMLConnectorV2) Check() error {
 	if _, err := url.Parse(o.Spec.RedirectURL); err != nil {
 		return trace.BadParameter("RedirectURL: bad url: '%v'", o.Spec.RedirectURL)
 	}
-	if o.Spec.ClientID == "" {
+	/* if o.Spec.ClientID == "" {
 		return trace.BadParameter("ClientID: missing client id")
 	}
 	if o.Spec.ClientSecret == "" {
 		return trace.BadParameter("ClientSecret: missing client secret")
-	}
+	} */
 	return nil
 }
 

@@ -509,7 +509,7 @@ func (m *Handler) samlLoginConsole(w http.ResponseWriter, r *http.Request, p htt
 
 func (m *Handler) samlCallback(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
 	log.Infof("samlCallback start")
-	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r)
+	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r.URL.Query())
 	if err != nil {
 		log.Infof("VALIDATE error: %v", err)
 		return nil, trace.Wrap(err)
@@ -734,7 +734,7 @@ func (m *Handler) Authorize(w http.ResponseWriter, r *http.Request, assertion *s
 // samlConsume is used to validate saml assertions
 func (m *Handler) samlConsume(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
 	r.ParseForm()
-	assertion, err := m.sp.ServiceProvider.ParseResponse(r, m.getPossibleRequestIDs(r))
+	assertion, err := m.sp.ServiceProvider.ParseResponse(r.URL.Query(), m.getPossibleRequestIDs(r))
 	if err != nil {
 		if parseErr, ok := err.(*saml.InvalidResponseError); ok {
 			log.Printf("RESPONSE: ===\n%s\n===\nNOW: %s\nERROR: %s",

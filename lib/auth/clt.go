@@ -100,7 +100,8 @@ func (c *Client) PostForm(
 	vals url.Values,
 	files ...roundtrip.File) (*roundtrip.Response, error) {
 
-	return httplib.ConvertResponse(c.Client.PostForm(endpoint, vals, files...))
+//	return httplib.ConvertResponse(c.Client.PostForm(endpoint, vals, files...))
+	return c.Client.PostForm(endpoint, vals, files...)
 }
 
 // Get issues http GET request to the server
@@ -1011,17 +1012,15 @@ func (c *Client) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.
 }
 
 // ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
-func (c *Client) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error) {
-	out, err := c.PostJSON(c.Endpoint("saml", "requests", "validate"), validateSAMLAuthCallbackReq{
-		Query: r.URL.Query(),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
+func (c *Client) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
+	out, err := c.PostForm(c.Endpoint("saml", "requests", "validate"), q) // validateSAMLAuthCallbackReq{ Query: q, }) 
+	if err != nil { 
+		return nil, trace.Wrap(err) 
 	}
 	var rawResponse *samlAuthRawResponse
 	if err := json.Unmarshal(out.Bytes(), &rawResponse); err != nil {
 		return nil, trace.Wrap(err)
-	}
+	}  
 	response := SAMLAuthResponse{
 		Username: rawResponse.Username,
 		Identity: rawResponse.Identity,
@@ -1351,7 +1350,7 @@ type IdentityService interface {
 	CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.SAMLAuthRequest, error)
 
 	// ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
-	ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error)
+	ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error)
 
 
 	// GetU2FSignRequest generates request for user trying to authenticate with U2F token

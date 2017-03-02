@@ -26,7 +26,6 @@ package auth
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	// "strings"
 	"encoding/base64"
@@ -1160,9 +1159,9 @@ type TokenClaims struct {
 // ValidateSAMLAuthCallback is called by the proxy to check SAML query parameters
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
-func (a *AuthServer) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error) {
+func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
 
-	stateToken := r.URL.Query().Get("RelayState")
+	stateToken := q.Get("RelayState")
 	if stateToken == "" {
 		return nil, nil // trace.OAuth2(
 		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
@@ -1181,7 +1180,7 @@ func (a *AuthServer) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthRespons
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	assertion, err := samlClient.ServiceProvider.ParseResponse(r, []string{"bob", ""})
+	assertion, err := samlClient.ServiceProvider.ParseResponse(q, []string{"bob", ""})
 	// secretBlock, _ := pem.Decode([]byte(samlClient.ServiceProvider.Key))
 
 	// redirectURI := "/"

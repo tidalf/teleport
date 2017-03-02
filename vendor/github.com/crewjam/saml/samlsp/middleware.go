@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"encoding/xml"
+        "net/http"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -83,7 +83,7 @@ func (m *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	acsURL, _ := url.Parse(m.ServiceProvider.AcsURL)
 	if r.URL.Path == acsURL.Path {
 		r.ParseForm()
-		assertion, err := m.ServiceProvider.ParseResponse(r, m.getPossibleRequestIDs(r))
+		assertion, err := m.ServiceProvider.ParseResponse(r.URL.Query(), m.getPossibleRequestIDs(r))
 		if err != nil {
 			if parseErr, ok := err.(*saml.InvalidResponseError); ok {
 				log.Printf("RESPONSE: ===\n%s\n===\nNOW: %s\nERROR: %s",

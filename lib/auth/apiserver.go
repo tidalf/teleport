@@ -1033,7 +1033,7 @@ func (s *APIServer) validateSAMLAuthCallback(auth ClientI, w http.ResponseWriter
 	if err := httplib.ReadJSON(r, &req); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	response, err := auth.ValidateSAMLAuthCallback(req.Query)
+	response, err := auth.ValidateSAMLAuthCallback(r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

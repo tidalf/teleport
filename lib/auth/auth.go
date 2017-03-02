@@ -26,17 +26,19 @@ package auth
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	// "strings"
+	"encoding/base64"
+	// "encoding/pem"
 	"sync"
 	"time"
-	"encoding/base64"
 	// "encoding/json"
 	// "encoding/pem"
 	// "encoding/xml"
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/crewjam/saml"
 	"github.com/crewjam/saml/samlsp"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/backend"
 	"github.com/gravitational/teleport/lib/defaults"
@@ -780,7 +782,7 @@ type OIDCAuthResponse struct {
 }
 
 func (a *AuthServer) createOIDCUser(connector services.OIDCConnector, ident *oidc.Identity, claims jose.Claims) error {
-	roles := []string{"admin","users"} // connector.MapClaims(claims)
+	roles := []string{"admin", "users"} // connector.MapClaims(claims)
 	/* if len(roles) == 0 {
 		log.Warningf("[OIDC] could not find any of expected claims: %v in the set returned by provider %v: %v",
 			strings.Join(connector.GetClaims(), ","), connector.GetName(), strings.Join(services.GetClaimNames(claims), ","))
@@ -981,7 +983,7 @@ func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*samlsp.Middlew
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-        client.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
+	client.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
 
 	// client.SyncProviderConfig(conn.GetIssuerURL())
 
@@ -1007,24 +1009,24 @@ func randomBytes(n int) []byte {
 }
 
 func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.SAMLAuthRequest, error) {
-	
-		connector, err := s.Identity.GetSAMLConnector(req.ConnectorID, true)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		samlClient, err := s.getSAMLClient(connector)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 
-		token, err := utils.CryptoRandomHex(TokenLenBytes)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req.StateToken = token
-	
-	 binding := saml.HTTPRedirectBinding
-	 bindingLocation := samlClient.ServiceProvider.GetSSOBindingLocation(binding)
+	connector, err := s.Identity.GetSAMLConnector(req.ConnectorID, true)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	samlClient, err := s.getSAMLClient(connector)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	token, err := utils.CryptoRandomHex(TokenLenBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req.StateToken = token
+
+	binding := saml.HTTPRedirectBinding
+	bindingLocation := samlClient.ServiceProvider.GetSSOBindingLocation(binding)
 	// if bindingLocation == "" {
 	// 	binding = saml.HTTPPostBinding
 	// 	bindingLocation = samlClient.ServiceProvider.GetSSOBindingLocation(binding)
@@ -1033,7 +1035,7 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 	req2, err := samlClient.ServiceProvider.MakeAuthenticationRequest(bindingLocation)
 	if err != nil {
 		// http.Error(w, err.Error(), http.StatusInternalServerError)
-   	log.Debugf("fail in auth request")
+		log.Debugf("fail in auth request")
 		return nil, nil
 	}
 
@@ -1053,11 +1055,11 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 		return nil, nil
 	}
 
-        // if binding == saml.HTTPRedirectBinding {
+	// if binding == saml.HTTPRedirectBinding {
 	redirectURL := req2.Redirect(relayState)
-	  	// w.Header().Add("Location", redirectURL.String())
-		// w.WriteHeader(http.StatusFound)
-       //		return nil, nil
+	// w.Header().Add("Location", redirectURL.String())
+	// w.WriteHeader(http.StatusFound)
+	//		return nil, nil
 	// }
 
 	// oauthClient, err := samlClient.OAuthClient()
@@ -1068,13 +1070,13 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 	// redirectURL := oauthClient.AuthCodeURL(req.StateToken, "online", "select_account")
 	req.RedirectURL = redirectURL.String()
 
-   	log.Debugf("re.RedirectURL %s", req.RedirectURL )
-	
-		err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return &req, nil 
+	log.Debugf("re.RedirectURL %s", req.RedirectURL)
+
+	err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &req, nil
 }
 
 // SAMLAuthResponse is returned when auth server validated callback parameters
@@ -1150,19 +1152,20 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *sam
 	return nil
 }
 
+type TokenClaims struct {
+	jwt.StandardClaims
+	Attributes map[string][]string `json:"attr"`
+}
+
 // ValidateSAMLAuthCallback is called by the proxy to check SAML query parameters
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
-func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-	samlresponse := q.Get("SAMLResponse")
-	if samlresponse == "" {
-            return nil,nil
-	}
+func (a *AuthServer) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error) {
 
-	stateToken := q.Get("RelayState")
+	stateToken := r.URL.Query().Get("RelayState")
 	if stateToken == "" {
-		return nil, trace.OAuth2(
-			oauth2.ErrorInvalidRequest, "missing state query param", q)
+		return nil, nil // trace.OAuth2(
+		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
 	}
 
 	req, err := a.Identity.GetSAMLAuthRequest(stateToken)
@@ -1174,15 +1177,80 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if connector.GetName() == "" {
-
-	}
-        /* 	
 	samlClient, err := a.getSAMLClient(connector)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	assertion, err := samlClient.ServiceProvider.ParseResponse(r, []string{"bob", ""})
+	// secretBlock, _ := pem.Decode([]byte(samlClient.ServiceProvider.Key))
+
+	// redirectURI := "/"
+	/* if r.Form.Get("RelayState") != "" {
+		stateCookie, err := r.Cookie(fmt.Sprintf("saml_%s", r.Form.Get("RelayState")))
 		if err != nil {
+			log.Printf("cannot find corresponding cookie: %s", fmt.Sprintf("saml_%s", r.Form.Get("RelayState")))
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		state, err := jwt.Parse(stateCookie.Value, func(t *jwt.Token) (interface{}, error) {
+			return secretBlock.Bytes, nil
+		})
+		if err != nil || !state.Valid {
+			log.Printf("Cannot decode state JWT: %s (%s)", err, stateCookie.Value)
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		claims := state.Claims.(jwt.MapClaims)
+		redirectURI = claims["uri"].(string)
+
+		// delete the cookie
+		stateCookie.Value = ""
+		stateCookie.Expires = time.Time{}
+		http.SetCookie(w, stateCookie)
+	}*/
+
+	now := saml.TimeNow()
+	claims := TokenClaims{}
+	claims.Audience = samlClient.ServiceProvider.Metadata().EntityID
+	claims.IssuedAt = assertion.IssueInstant.Unix()
+	claims.ExpiresAt = now.Add(3600).Unix()
+	claims.NotBefore = now.Unix()
+	if sub := assertion.Subject; sub != nil {
+		if nameID := sub.NameID; nameID != nil {
+			claims.StandardClaims.Subject = nameID.Value
+		}
+	}
+	if assertion.AttributeStatement != nil {
+		claims.Attributes = map[string][]string{}
+		for _, attr := range assertion.AttributeStatement.Attributes {
+			claimName := attr.FriendlyName
+			if claimName == "" {
+				claimName = attr.Name
+			}
+			for _, value := range attr.Values {
+				claims.Attributes[claimName] = append(claims.Attributes[claimName], value.Value)
+			}
+		}
+	}
+	//signedToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256,
+	//	claims).SignedString(secretBlock.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	/* if (claims.Attributes['uid'])
+		log.Infof("oidcCallback redirecting to web browser")
+		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
 			return nil, trace.Wrap(err)
-		} 
-         assertion, err := samlClient.ServiceProvider.ParseResponse(samlresponse,"") */
+		}
+		http.Redirect(w, r, response.Req.ClientRedirectURL, http.StatusFound)
+		return nil, nil
+	} */
+
+	//
+
+	// http.Redirect(w, r, redirectURI, http.StatusFound)
+
 	/* tok, err := samlClient.ExchangeAuthCode(code)
 	if err != nil {
 		return nil, trace.OAuth2(

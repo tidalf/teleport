@@ -1011,9 +1011,9 @@ func (c *Client) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.
 }
 
 // ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
-func (c *Client) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
+func (c *Client) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error) {
 	out, err := c.PostJSON(c.Endpoint("saml", "requests", "validate"), validateSAMLAuthCallbackReq{
-		Query: q,
+		Query: r.URL.Query(),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1351,7 +1351,7 @@ type IdentityService interface {
 	CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.SAMLAuthRequest, error)
 
 	// ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
-	ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error)
+	ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error)
 
 
 	// GetU2FSignRequest generates request for user trying to authenticate with U2F token

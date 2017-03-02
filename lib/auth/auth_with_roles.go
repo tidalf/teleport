@@ -18,6 +18,7 @@ package auth
 
 import (
 	"io"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -514,9 +515,9 @@ func (a *AuthWithRoles) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*se
 	return a.authServer.CreateSAMLAuthRequest(req)
 }
 
-func (a *AuthWithRoles) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
+func (a *AuthWithRoles) ValidateSAMLAuthCallback(r *http.Request) (*SAMLAuthResponse, error) {
 	// auth callback is it's own authz, no need to check extra permissions
-	return a.authServer.ValidateSAMLAuthCallback(q)
+	return a.authServer.ValidateSAMLAuthCallback(r)
 }
 
 func (a *AuthWithRoles) DeleteSAMLConnector(connectorID string) error {

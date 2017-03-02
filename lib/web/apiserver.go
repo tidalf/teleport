@@ -509,7 +509,7 @@ func (m *Handler) samlLoginConsole(w http.ResponseWriter, r *http.Request, p htt
 
 func (m *Handler) samlCallback(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
 	log.Infof("samlCallback start")
-	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r.URL.Query())
+	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r)
 	if err != nil {
 		log.Infof("VALIDATE error: %v", err)
 		return nil, trace.Wrap(err)

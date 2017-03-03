@@ -1034,7 +1034,9 @@ func (s *APIServer) validateSAMLAuthCallback(auth ClientI, w http.ResponseWriter
 		return nil, trace.Wrap(err)
 	}  */
 	response, err := auth.ValidateSAMLAuthCallback(r.Form)
+        // log.Info("%s", response.Session)
 	if err != nil {
+                log.Info("authvalidate failed:(")
 		return nil, trace.Wrap(err)
 	}
 	 raw := samlAuthRawResponse{

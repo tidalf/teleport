@@ -97,13 +97,12 @@ func (c *Client) PutJSON(
 // PostForm is a generic method that issues http POST request to the server
 func (c *Client) PostForm(
 	endpoint string,
-	vals url.Values,
-	files ...roundtrip.File) (*roundtrip.Response, error) {
-        log.Info("********** bim:%s", vals) 
-        for _, val := range vals { 
-           log.Info("********** bim:%s", val) 
+	vals url.Values) (*roundtrip.Response, error) {
+	log.Info("********** bim:%s", vals)
+        for _, val := range vals {
+           log.Info("********** bim:%s", val)
         }
-	return c.Client.PostForm(endpoint, vals, files...)
+	return c.Client.PostForm(endpoint, vals)   // , files...)
 //	return c.Client.PostForm(endpoint, vals, files...)
 }
 

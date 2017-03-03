@@ -1161,11 +1161,13 @@ type TokenClaims struct {
 // will respond with SAMLAuthResponse, otherwise it will return error
 func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
 	stateToken := q.Get("SAMLResponse")
-        log.Info("***** are we there ? **** %s", q) // stateToken )
-	/* if stateToken == "" {
+        log.Info("***** are we there ? **** %s", stateToken) // stateToken )
+	
+        if stateToken == "" {
+                log.Info ("no stateToken :(") 
 		return nil, nil // trace.OAuth2(
 		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
-	} */
+	} 
 
 	req, err := a.Identity.GetSAMLAuthRequest(stateToken)
 	if err != nil {

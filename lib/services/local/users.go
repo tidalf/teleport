@@ -683,12 +683,14 @@ func (s *IdentityService) CreateSAMLAuthRequest(req services.SAMLAuthRequest, tt
 func (s *IdentityService) GetSAMLAuthRequest(stateToken string) (*services.SAMLAuthRequest, error) {
 	data, err := s.backend.GetVal(authRequestsPath, stateToken)
 	if err != nil {
+                log.Info("*** GetVal Failed***")
 		return nil, trace.Wrap(err)
 	}
+        log.Info("*** GetVal ok ***")
 	var req *services.SAMLAuthRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return nil, trace.Wrap(err)
-	}
+	} 
 	return req, nil
 }
 

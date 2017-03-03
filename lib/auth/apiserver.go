@@ -1029,8 +1029,10 @@ type samlAuthRawResponse struct {
 }
 
 func (s *APIServer) validateSAMLAuthCallback(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
-	/* var req *validateSAMLAuthCallbackReq
-	if err := httplib.ReadForm(r, &req); err != nil {
+	// var req http.Request
+        // req = *r 
+        r.ParseForm()
+	/*if err := httplib.Read(r, &req); err != nil {
 		return nil, trace.Wrap(err)
 	}  */
 	response, err := auth.ValidateSAMLAuthCallback(r.Form)

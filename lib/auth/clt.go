@@ -1015,7 +1015,7 @@ func (c *Client) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.
 
 // ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
 func (c *Client) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-        log.Info("%s", q.Get("SAMLResponse"))
+        log.Info("paf paf: %s", q.Get("SAMLResponse"))
 	out, err := c.PostForm(c.Endpoint("saml", "requests", "validate"), q ) // validateSAMLAuthCallbackReq{ Query: q, }) 
 	if err != nil { 
 		return nil, trace.Wrap(err) 

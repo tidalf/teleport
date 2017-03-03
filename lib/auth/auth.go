@@ -1160,17 +1160,17 @@ type TokenClaims struct {
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
 func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-	stateToken := q.Get("SAMLResponse")
-        log.Info("***** are we there ? **** %s", stateToken) // stateToken )
-	
+	stateToken := q.Get("RelayState")
         if stateToken == "" {
-                log.Info ("no stateToken :(") 
+                log.Info ("no stateToken :(")
 		return nil, nil // trace.OAuth2(
 		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
-	} 
+	}
+                log.Info ("we have a stateToken", stateToken )
 
 	req, err := a.Identity.GetSAMLAuthRequest(stateToken)
 	if err != nil {
+                log.Info("***** Failed GetSAMLAuthRequest ****" )
 		return nil, trace.Wrap(err)
 	}
         log.Info("***** after GetSAMLAuthRe are we there ? ****" )

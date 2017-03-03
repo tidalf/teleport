@@ -99,9 +99,12 @@ func (c *Client) PostForm(
 	endpoint string,
 	vals url.Values,
 	files ...roundtrip.File) (*roundtrip.Response, error) {
-
-//	return httplib.ConvertResponse(c.Client.PostForm(endpoint, vals, files...))
+        log.Info("********** bim:%s", vals) 
+        for _, val := range vals { 
+           log.Info("********** bim:%s", val) 
+        }
 	return c.Client.PostForm(endpoint, vals, files...)
+//	return c.Client.PostForm(endpoint, vals, files...)
 }
 
 // Get issues http GET request to the server
@@ -1013,7 +1016,8 @@ func (c *Client) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*services.
 
 // ValidateSAMLAuthCallback validates SAML auth callback returned from redirect
 func (c *Client) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-	out, err := c.PostForm(c.Endpoint("saml", "requests", "validate"), q) // validateSAMLAuthCallbackReq{ Query: q, }) 
+        log.Info("%s", q.Get("SAMLResponse"))
+	out, err := c.PostForm(c.Endpoint("saml", "requests", "validate"), q ) // validateSAMLAuthCallbackReq{ Query: q, }) 
 	if err != nil { 
 		return nil, trace.Wrap(err) 
 	}
@@ -1026,7 +1030,7 @@ func (c *Client) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, erro
 		Identity: rawResponse.Identity,
 		Cert:     rawResponse.Cert,
 		Req:      rawResponse.Req,
-	}
+	} 
 	if len(rawResponse.Session) != 0 {
 		session, err := services.GetWebSessionMarshaler().UnmarshalWebSession(rawResponse.Session)
 		if err != nil {

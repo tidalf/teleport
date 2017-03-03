@@ -1029,16 +1029,16 @@ type samlAuthRawResponse struct {
 }
 
 func (s *APIServer) validateSAMLAuthCallback(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
-	var req *validateSAMLAuthCallbackReq
-	/* if err := httplib.ReadJSON(r, &req); err != nil {
+	/* var req *validateSAMLAuthCallbackReq
+	if err := httplib.ReadForm(r, &req); err != nil {
 		return nil, trace.Wrap(err)
-	} */
-	response, err := auth.ValidateSAMLAuthCallback(req.Query)
+	}  */
+	response, err := auth.ValidateSAMLAuthCallback(r.Form)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	raw := samlAuthRawResponse{
-		Username: response.Username,
+	 raw := samlAuthRawResponse{
+ 		Username: response.Username,
 		Identity: response.Identity,
 		Cert:     response.Cert,
 		Req:      response.Req,

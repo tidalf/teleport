@@ -216,7 +216,7 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	// SAML related callback handlers
 	h.GET("/webapi/saml/login/web", httplib.MakeHandler(h.samlLoginWeb))
 	h.POST("/webapi/saml/login/console", httplib.MakeHandler(h.samlLoginConsole))
-	h.GET("/webapi/saml/callback", httplib.MakeHandler(h.samlCallback))
+	h.POST("/webapi/saml/callback", httplib.MakeHandler(h.samlCallback))
 
 	h.GET("/webapi/saml/metadata", httplib.MakeHandler(h.samlMetadata))
 	h.GET("/webapi/saml/auth", httplib.MakeHandler(h.samlAuth))
@@ -509,7 +509,10 @@ func (m *Handler) samlLoginConsole(w http.ResponseWriter, r *http.Request, p htt
 
 func (m *Handler) samlCallback(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
 	log.Infof("samlCallback start")
-	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r.URL.Query())
+        r.ParseForm()
+        // log.Infof(r.Form.Get("SAMLResponse"))
+
+	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r.Form)
 	if err != nil {
 		log.Infof("VALIDATE error: %v", err)
 		return nil, trace.Wrap(err)

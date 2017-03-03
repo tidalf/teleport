@@ -30,7 +30,7 @@ func New(opts Options) (*Middleware, error) {
 			Key:         opts.Key,
 			Certificate: opts.Certificate,
 			MetadataURL: opts.URL + "/saml/metadata",
-			AcsURL:      opts.URL + "/saml/acs",
+			AcsURL:      opts.URL + "/saml/callback",
 			IDPMetadata: opts.IDPMetadata,
 		},
 		AllowIDPInitiated: opts.AllowIDPInitiated,

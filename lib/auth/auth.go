@@ -1160,17 +1160,18 @@ type TokenClaims struct {
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
 func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
-
-	stateToken := q.Get("RelayState")
-	if stateToken == "" {
+	stateToken := q.Get("SAMLResponse")
+        log.Info("***** are we there ? **** %s", q) // stateToken )
+	/* if stateToken == "" {
 		return nil, nil // trace.OAuth2(
 		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
-	}
+	} */
 
 	req, err := a.Identity.GetSAMLAuthRequest(stateToken)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+        log.Info("***** after GetSAMLAuthRe are we there ? ****" )
 
 	connector, err := a.Identity.GetSAMLConnector(req.ConnectorID, true)
 	if err != nil {
@@ -1181,6 +1182,7 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 		return nil, trace.Wrap(err)
 	}
 	assertion, err := samlClient.ServiceProvider.ParseResponse(q, []string{"bob", ""})
+        log.Info("***** after GetSAMLAuthRe are we there ? **** %s", assertion )
 	// secretBlock, _ := pem.Decode([]byte(samlClient.ServiceProvider.Key))
 
 	// redirectURI := "/"
@@ -1237,7 +1239,9 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	if err != nil {
 		panic(err)
 	}
-	/* if (claims.Attributes['uid'])
+	if claims.Attributes["email"][0] == "cyril@dashlane.com" { 
+	  log.Info("uid:%s", claims.Attributes["email"] )
+         } /*
 		log.Infof("oidcCallback redirecting to web browser")
 		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
 			return nil, trace.Wrap(err)

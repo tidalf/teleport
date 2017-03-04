@@ -35,10 +35,10 @@ type SAMLConnector interface {
 	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
 	GetIssuerURL() string
 	// ClientID is id for authentication client (in our case it's our Auth server)
-	GetClientID() string
+	GetPathCert() string
 	// ClientSecret is used to authenticate our client and should not
 	// be visible to end user
-	GetClientSecret() string
+	GetPathKey() string
 	// RedirectURL - Identity provider will use this URL to redirect
 	// client's browser back to it after successfull authentication
 	// Should match the URL on Provider's side
@@ -185,8 +185,6 @@ func (o *SAMLConnectorV2) V1() *SAMLConnectorV1 {
 	return &SAMLConnectorV1{
 		ID:            o.Metadata.Name,
 		IssuerURL:     o.Spec.IssuerURL,
-		ClientID:      o.Spec.ClientID,
-		ClientSecret:  o.Spec.ClientSecret,
 		RedirectURL:   o.Spec.RedirectURL,
 		Display:       o.Spec.Display,
 		Scope:         o.Spec.Scope,
@@ -244,15 +242,14 @@ func (o *SAMLConnectorV2) GetIssuerURL() string {
 	return o.Spec.IssuerURL
 }
 
-// ClientID is id for authentication client (in our case it's our Auth server)
-func (o *SAMLConnectorV2) GetClientID() string {
-	return o.Spec.ClientID
+// GetPathCert is the path of the certificate that will we used to signed auth requests
+func (o *SAMLConnectorV2) GetPathCert() string {
+	return o.Spec.PathCert
 }
 
-// ClientSecret is used to authenticate our client and should not
-// be visible to end user
-func (o *SAMLConnectorV2) GetClientSecret() string {
-	return o.Spec.ClientSecret
+// GetPathCert is the path of the key that will we used to signed auth requests
+func (o *SAMLConnectorV2) GetPathKey() string {
+	return o.Spec.PathKey
 }
 
 // RedirectURL - Identity provider will use this URL to redirect
@@ -353,7 +350,8 @@ type SAMLConnectorSpecV2 struct {
 	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
 	IssuerURL string `json:"issuer_url"`
 	// ClientID is id for authentication client (in our case it's our Auth server)
-	ClientID string `json:"client_id"`
+	PathCert string `json:"path_cert"`
+	PathKey  string `json:"path_key"`
 	// ClientSecret is used to authenticate our client and should not
 	// be visible to end user
 	ClientSecret string `json:"client_secret"`
@@ -373,11 +371,11 @@ type SAMLConnectorSpecV2 struct {
 var SAMLConnectorSpecV2Schema = fmt.Sprintf(`{
   "type": "object",
   "additionalProperties": false,
-  "required": ["issuer_url", "client_id", "client_secret", "redirect_url"],
+  "required": ["issuer_url", "path_cert", "path_key", "redirect_url"],
   "properties": {
     "issuer_url": {"type": "string"},
-    "client_id": {"type": "string"},
-    "client_secret": {"type": "string"},
+    "path_cert": {"type": "string"},
+    "path_key": {"type": "string"},
     "redirect_url": {"type": "string"},
     "display": {"type": "string"},
     "scope": {
@@ -401,13 +399,6 @@ type SAMLConnectorV1 struct {
 	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
 	IssuerURL string `json:"issuer_url"`
 	// ClientID is id for authentication client (in our case it's our Auth server)
-	ClientID string `json:"client_id"`
-	// ClientSecret is used to authenticate our client and should not
-	// be visible to end user
-	ClientSecret string `json:"client_secret"`
-	// RedirectURL - Identity provider will use this URL to redirect
-	// client's browser back to it after successfull authentication
-	// Should match the URL on Provider's side
 	RedirectURL string `json:"redirect_url"`
 	// Display - Friendly name for this provider.
 	Display string `json:"display"`
@@ -432,8 +423,8 @@ func (o *SAMLConnectorV1) V2() *SAMLConnectorV2 {
 		},
 		Spec: SAMLConnectorSpecV2{
 			IssuerURL:     o.IssuerURL,
-			ClientID:      o.ClientID,
-			ClientSecret:  o.ClientSecret,
+			PathCert:      o.PathCert,
+			PathKey:       o.PathKey,
 			RedirectURL:   o.RedirectURL,
 			Display:       o.Display,
 			Scope:         o.Scope,

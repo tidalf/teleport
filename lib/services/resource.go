@@ -56,9 +56,11 @@ const (
 
 	// KindOIDC is oidc connector resource
 	KindOIDC = "oidc"
+	KindSAML = "saml"
 
 	// KindOIDCReques is oidc auth request resource
 	KindOIDCRequest = "oidc_request"
+	KindSAMLRequest = "saml_request"
 
 	// KindSession is a recorded session resource
 	KindSession = "session"
@@ -89,6 +91,7 @@ const (
 
 	// KindOIDCConnector is a OIDC connector resource
 	KindOIDCConnector = "oidc"
+	KindSAMLConnector = "saml"
 
 	// KindAuthPreference is the type of authentication for this cluster.
 	KindClusterAuthPreference = "cluster_auth_preference"
@@ -252,6 +255,8 @@ func ParseShortcut(in string) (string, error) {
 		return KindNode, nil
 	case "oidc":
 		return KindOIDCConnector, nil
+	case "saml":
+		return KindSAMLConnector, nil
 	case "users":
 		return KindUser, nil
 	case "cert_authorities", "cas":

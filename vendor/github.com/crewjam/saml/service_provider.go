@@ -8,7 +8,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"html/template"
-	"net/http"
 	"net/url"
 	"regexp"
 	"time"
@@ -334,14 +333,14 @@ func (ivr *InvalidResponseError) Error() string {
 // properties are useful in describing which part of the parsing process
 // failed. However, to discourage inadvertent disclosure the diagnostic
 // information, the Error() method returns a static string.
-func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs []string) (*Assertion, error) {
+func (sp *ServiceProvider) ParseResponse(q url.Values, possibleRequestIDs []string) (*Assertion, error) {
 	now := TimeNow()
 	retErr := &InvalidResponseError{
 		Now:      now,
-		Response: req.PostForm.Get("SAMLResponse"),
+		Response: q.Get("SAMLResponse"),
 	}
 
-	rawResponseBuf, err := base64.StdEncoding.DecodeString(req.PostForm.Get("SAMLResponse"))
+	rawResponseBuf, err := base64.StdEncoding.DecodeString(q.Get("SAMLResponse"))
 	if err != nil {
 		retErr.PrivateErr = fmt.Errorf("cannot parse base64: %s", err)
 		return nil, retErr

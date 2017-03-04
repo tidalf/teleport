@@ -326,7 +326,8 @@ func (r *reverseTunnelCollection) writeYAML(w io.Writer) error {
 }
 
 type connectorCollection struct {
-	connectors []services.OIDCConnector
+	connectors     []services.OIDCConnector
+	connectorsSAML []services.SAMLConnector
 }
 
 func (c *connectorCollection) writeText(w io.Writer) error {

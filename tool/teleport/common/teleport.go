@@ -23,10 +23,8 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 
-	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/service"
@@ -37,14 +35,14 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// same as main() but has a testing switch
+// Run is same as main() but has a testing switch
 func Run(cmdlineArgs []string, testRun bool) (executedCommand string, conf *service.Config) {
 	var err error
 	// configure trace's errors to produce full stack traces
-	isDebug, _ := strconv.ParseBool(os.Getenv(teleport.VerboseLogsEnvVar))
-	if isDebug {
-		trace.SetDebug(true)
-	}
+	//isDebug, _ := strconv.ParseBool(os.Getenv(teleport.VerboseLogsEnvVar))
+	//if isDebug {
+	trace.SetDebug(true)
+	//}
 	// configure logger for a typical CLI scenario until configuration file is
 	// parsed
 	utils.InitLoggerCLI()
@@ -230,6 +228,7 @@ func onSCP(cmd *scp.Command) (err error) {
 	return trace.Wrap(cmd.Execute(&StdReadWriter{}))
 }
 
+// StdReadWriter should be removed
 type StdReadWriter struct {
 }
 

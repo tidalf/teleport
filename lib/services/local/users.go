@@ -134,6 +134,28 @@ func (s *IdentityService) GetUserByOIDCIdentity(id services.OIDCIdentity) (servi
 	return nil, trace.NotFound("user with identity %v not found", &id)
 }
 
+// GetUserBySAMLIdentity returns a user by it's specified SAML Identity, returns first
+// user specified with this identity
+func (s *IdentityService) GetUserBySAMLIdentity(id services.SAMLIdentity) (services.User, error) {
+	users, err := s.GetUsers()
+        log.Infof("before getusers in getuser")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+        log.Infof("after getusers in getuser")
+	for _, u := range users {
+          log.Infof("in for after getusers in getuser")
+		for _, uid := range u.GetIdentitiesSAML() {
+          	log.Infof("in 2ndfor for after getusers in getuser")
+			if uid.Equals(&id) {
+				return u, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("user with identity %v not found", &id)
+}
+
+
 // DeleteUser deletes a user with all the keys from the backend
 func (s *IdentityService) DeleteUser(user string) error {
 	err := s.backend.DeleteBucket([]string{"web", "users"}, user)
@@ -381,7 +403,9 @@ var (
 	userTokensPath   = []string{"addusertokens"}
 	u2fRegChalPath   = []string{"adduseru2fchallenges"}
 	connectorsPath   = []string{"web", "connectors", "oidc", "connectors"}
+	connectorsPathSAML   = []string{"web", "connectors", "saml", "connectors"}
 	authRequestsPath = []string{"web", "connectors", "oidc", "requests"}
+	authRequestsPathSAML = []string{"web", "connectors", "saml", "requests"}
 )
 
 // UpsertSignupToken upserts signup token - one time token that lets user to create a user account
@@ -584,6 +608,97 @@ func (s *IdentityService) GetU2FSignChallenge(user string) (*u2f.Challenge, erro
 		return nil, trace.Wrap(err)
 	}
 	return &u2fChal, nil
+}
+
+// UpsertSAMLConnector upserts SAML Connector
+func (s *IdentityService) UpsertSAMLConnector(connector services.SAMLConnector, ttl time.Duration) error {
+	if err := connector.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	data, err := services.GetSAMLConnectorMarshaler().MarshalSAMLConnector(connector)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.backend.UpsertVal(connectorsPathSAML, connector.GetName(), data, ttl)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// DeleteSAMLConnector deletes SAML Connector
+func (s *IdentityService) DeleteSAMLConnector(connectorID string) error {
+	err := s.backend.DeleteKey(connectorsPathSAML, connectorID)
+	return trace.Wrap(err)
+}
+
+// GetSAMLConnector returns SAML connector data, , withSecrets adds or removes client secret from return results
+func (s *IdentityService) GetSAMLConnector(id string, withSecrets bool) (services.SAMLConnector, error) {
+	data, err := s.backend.GetVal(connectorsPathSAML, id)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("OpenID connector '%v' is not configured", id)
+		}
+		return nil, trace.Wrap(err)
+	}
+	conn, err := services.GetSAMLConnectorMarshaler().UnmarshalSAMLConnector(data)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return conn, nil
+}
+
+// GetSAMLConnectors returns registered connectors, withSecrets adds or removes client secret from return results
+func (s *IdentityService) GetSAMLConnectors(withSecrets bool) ([]services.SAMLConnector, error) {
+	connectorIDs, err := s.backend.GetKeys(connectorsPathSAML)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	connectors := make([]services.SAMLConnector, 0, len(connectorIDs))
+	for _, id := range connectorIDs {
+		connector, err := s.GetSAMLConnector(id, withSecrets)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		connectors = append(connectors, connector)
+	}
+	return connectors, nil
+}
+
+// CreateSAMLAuthRequest creates new auth request
+func (s *IdentityService) CreateSAMLAuthRequest(req services.SAMLAuthRequest, ttl time.Duration) error {
+	if err := req.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	log.Info("store stateToken in CreateSAMLAuthRequest",req.StateToken)
+	err = s.backend.CreateVal(authRequestsPathSAML, req.StateToken, data, ttl)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetSAMLAuthRequest returns SAML auth request if found
+func (s *IdentityService) GetSAMLAuthRequest(stateToken string) (*services.SAMLAuthRequest, error) {
+	for path := range authRequestsPathSAML {
+		log.Info("path:", path)
+	}
+	log.Info("stateToken in GetSAMLAuthRequest", stateToken)
+	data, err := s.backend.GetVal(authRequestsPathSAML, stateToken)
+	if err != nil {
+                log.Info("*** GetVal Failed***")
+		return nil, trace.Wrap(err)
+	}
+        log.Info("*** GetVal ok ***")
+	var req *services.SAMLAuthRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return nil, trace.Wrap(err)
+	} 
+	return req, nil
 }
 
 // UpsertOIDCConnector upserts OIDC Connector

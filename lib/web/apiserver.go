@@ -219,8 +219,8 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	h.POST("/webapi/saml/callback", httplib.MakeHandler(h.samlCallback))
 
 	h.GET("/webapi/saml/metadata", httplib.MakeHandler(h.samlMetadata))
-	h.GET("/webapi/saml/auth", httplib.MakeHandler(h.samlAuth))
-	h.POST("/webapi/saml/acs", httplib.MakeHandler(h.samlCallback))
+	// h.GET("/webapi/saml/auth", httplib.MakeHandler(h.samlAuth))
+	// h.POST("/webapi/saml/acs", httplib.MakeHandler(h.samlCallback))
 
 	// U2F related APIs
 	h.GET("/webapi/u2f/signuptokens/:token", httplib.MakeHandler(h.u2fRegisterRequest))
@@ -479,7 +479,6 @@ func (m *Handler) samlLoginWeb(w http.ResponseWriter, r *http.Request, p httprou
 }
 
 func (m *Handler) samlLoginConsole(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
-	log.Infof("samlLoginConsole start")
 	var req *client.SAMLLoginConsoleReq
 	if err := httplib.ReadJSON(r, &req); err != nil {
 		return nil, trace.Wrap(err)
@@ -508,10 +507,7 @@ func (m *Handler) samlLoginConsole(w http.ResponseWriter, r *http.Request, p htt
 }
 
 func (m *Handler) samlCallback(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
-	log.Infof("samlCallback start")
-        r.ParseForm()
-        // log.Infof(r.Form.Get("SAMLResponse"))
-
+	r.ParseForm()
 	response, err := m.cfg.ProxyClient.ValidateSAMLAuthCallback(r.Form)
 	if err != nil {
 		log.Infof("VALIDATE error: %v", err)
@@ -617,136 +613,6 @@ func (m *Handler) oidcCallback(w http.ResponseWriter, r *http.Request, p httprou
 		return nil, trace.Wrap(err)
 	}
 	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
-	return nil, nil
-}
-
-func (m *Handler) getPossibleRequestIDs(r *http.Request) []string {
-	rv := []string{}
-	for _, cookie := range r.Cookies() {
-		if !strings.HasPrefix(cookie.Name, "saml_") {
-			continue
-		}
-		log.Printf("getPossibleRequestIDs: cookie: %s", cookie.String())
-		/* token, _ := jwt.Parse(cookie.Value, func(t *jwt.Token) (interface{}, error) {
-			secretBlock, _ := pem.Decode([]byte(m.sp.ServiceProvider.Key))
-			return secretBlock.Bytes, nil
-		})
-		 if err != nil || !token.Valid {
-			log.Printf("... invalid token %s", err)
-			continue
-		}
-		claims := token.Claims.(jwt.MapClaims)
-		rv = append(rv, claims["id"].(string)) */
-	}
-
-	// If IDP initiated requests are allowed, then we can expect an empty response ID.
-	//if m.sp.ServiceProvider.AllowIDPInitiated {
-	rv = append(rv, "")
-	// }
-
-	return rv
-}
-
-type TokenClaims struct {
-	jwt.StandardClaims
-	Attributes map[string][]string `json:"attr"`
-}
-
-// Authorize is cool
-func (m *Handler) Authorize(w http.ResponseWriter, r *http.Request, assertion *saml.Assertion) {
-
-	CookieMaxAge := time.Hour
-	CookieName := "token"
-	secretBlock, _ := pem.Decode([]byte(m.sp.ServiceProvider.Key))
-
-	redirectURI := "/"
-	if r.Form.Get("RelayState") != "" {
-		stateCookie, err := r.Cookie(fmt.Sprintf("saml_%s", r.Form.Get("RelayState")))
-		if err != nil {
-			log.Printf("cannot find corresponding cookie: %s", fmt.Sprintf("saml_%s", r.Form.Get("RelayState")))
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
-		}
-
-		state, err := jwt.Parse(stateCookie.Value, func(t *jwt.Token) (interface{}, error) {
-			return secretBlock.Bytes, nil
-		})
-		if err != nil || !state.Valid {
-			log.Printf("Cannot decode state JWT: %s (%s)", err, stateCookie.Value)
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
-		}
-		claims := state.Claims.(jwt.MapClaims)
-		redirectURI = claims["uri"].(string)
-
-		// delete the cookie
-		stateCookie.Value = ""
-		stateCookie.Expires = time.Time{}
-		http.SetCookie(w, stateCookie)
-	}
-
-	now := saml.TimeNow()
-	claims := TokenClaims{}
-	claims.Audience = m.sp.ServiceProvider.Metadata().EntityID
-	claims.IssuedAt = assertion.IssueInstant.Unix()
-	claims.ExpiresAt = now.Add(CookieMaxAge).Unix()
-	claims.NotBefore = now.Unix()
-	if sub := assertion.Subject; sub != nil {
-		if nameID := sub.NameID; nameID != nil {
-			claims.StandardClaims.Subject = nameID.Value
-		}
-	}
-	if assertion.AttributeStatement != nil {
-		claims.Attributes = map[string][]string{}
-		for _, attr := range assertion.AttributeStatement.Attributes {
-			claimName := attr.FriendlyName
-			if claimName == "" {
-				claimName = attr.Name
-			}
-			for _, value := range attr.Values {
-				claims.Attributes[claimName] = append(claims.Attributes[claimName], value.Value)
-			}
-		}
-	}
-	signedToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256,
-		claims).SignedString(secretBlock.Bytes)
-	if err != nil {
-		panic(err)
-	}
-	/* if (claims.Attributes['uid'])
-		log.Infof("oidcCallback redirecting to web browser")
-		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		http.Redirect(w, r, response.Req.ClientRedirectURL, http.StatusFound)
-		return nil, nil
-	} */
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
-		Value:    signedToken,
-		MaxAge:   int(CookieMaxAge.Seconds()),
-		HttpOnly: false,
-		Path:     "/v1/webapi/saml/auth", // v1/webapi/saml/acs",
-	})
-	//
-
-	http.Redirect(w, r, redirectURI, http.StatusFound)
-}
-
-// samlConsume is used to validate saml assertions
-func (m *Handler) samlConsume(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
-	r.ParseForm()
-	assertion, err := m.sp.ServiceProvider.ParseResponse(r.URL.Query(), m.getPossibleRequestIDs(r))
-	if err != nil {
-		if parseErr, ok := err.(*saml.InvalidResponseError); ok {
-			log.Printf("RESPONSE: ===\n%s\n===\nNOW: %s\nERROR: %s",
-				parseErr.Response, parseErr.Now, parseErr.PrivateErr)
-		}
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return nil, nil
-	}
-	m.Authorize(w, r, assertion)
 	return nil, nil
 }
 

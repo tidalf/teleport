@@ -28,7 +28,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	// "strings"
-	"encoding/base64"
+	// "encoding/base64"
 	// "encoding/pem"
 	"sync"
 	"time"
@@ -1041,7 +1041,7 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 	// relayState is limited to 80 bytes but also must be integrety protected.
 	// this means that we cannot use a JWT because it is way to long. Instead
 	// we set a cookie that corresponds to the state
-	relayState := base64.URLEncoding.EncodeToString(randomBytes(42))
+	relayState := req.StateToken //base64.URLEncoding.EncodeToString(randomBytes(42))
 
 	// secretBlock, _ := pem.Decode([]byte(samlClient.ServiceProvider.Key))
 	state := jwt.New(jwt.GetSigningMethod("HS256"))
@@ -1096,32 +1096,33 @@ type SAMLAuthResponse struct {
 	HostSigners []services.CertAuthority `json:"host_signers"`
 }
 
-func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *saml.Assertion, claims jose.Claims) error {
-	/* roles := connector.MapClaims(claims)
-	if len(roles) == 0 {
+func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, claims TokenClaims) error {
+	// roles := connector.MapClaims(claims)
+        roles := []string{"admin","users"}
+	/* if len(roles) == 0 {
 		log.Warningf("[SAML] could not find any of expected claims: %v in the set returned by provider %v: %v",
 			strings.Join(connector.GetClaims(), ","), connector.GetName(), strings.Join(services.GetClaimNames(claims), ","))
 		return trace.AccessDenied("access denied to %v", ident.Email)
-	}
-	log.Debugf("[IDENTITY] %v/%v is a dynamic identity, generating user with roles: %v", connector.GetName(), ident.Email, roles)
+	} */
+	log.Debugf("[IDENTITY] %v/%v is a dynamic identity, generating user with roles: %v", connector.GetName(), claims.Attributes["email"][0], roles)
 	user, err := services.GetUserMarshaler().GenerateUser(&services.UserV2{
 		Kind:    services.KindUser,
 		Version: services.V2,
 		Metadata: services.Metadata{
-			Name:      ident.Email,
+			Name:      claims.Attributes["email"][0],
 			Namespace: defaults.Namespace,
 		},
 		Spec: services.UserSpecV2{
 			Roles:          roles,
-			Expires:        ident.ExpiresAt,
-			SAMLIdentities: []services.SAMLIdentity{{ConnectorID: connector.GetName(), Email: ident.Email}},
+			Expires:        time.Now().UTC().Add(time.Duration(3600)*time.Second),
+			SAMLIdentities: []services.SAMLIdentity{{ConnectorID: connector.GetName(), Email: claims.Attributes["email"][0]}},
 			CreatedBy: services.CreatedBy{
 				User: services.UserRef{Name: "system"},
 				Time: time.Now().UTC(),
 				Connector: &services.ConnectorRef{
 					Type:     teleport.ConnectorSAML,
 					ID:       connector.GetName(),
-					Identity: ident.Email,
+					Identity: claims.Attributes["email"][0],
 				},
 			},
 		},
@@ -1136,7 +1137,7 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *sam
 	if !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
-	existingUser, err := a.GetUser(ident.Email)
+	existingUser, err := a.GetUser(claims.Attributes["email"][0])
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
@@ -1147,8 +1148,7 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, ident *sam
 			return trace.AlreadyExists("user %v already exists and is not SAML user", existingUser.GetName())
 		}
 	}
-	return a.UpsertUser(user) */
-	return nil
+	return a.UpsertUser(user) 
 }
 
 type TokenClaims struct {
@@ -1241,9 +1241,7 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	if err != nil {
 		panic(err)
 	}
-	if claims.Attributes["email"][0] == "cyril@dashlane.com" { 
-	  log.Info("uid:%s", claims.Attributes["email"] )
-         } /*
+          /*
 		log.Infof("oidcCallback redirecting to web browser")
 		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
 			return nil, trace.Wrap(err)
@@ -1274,38 +1272,46 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 				return nil, trace.OAuth2(
 					oauth2.ErrorUnsupportedResponseType, "unable to convert claims to identity", q)
 			}
-
-			log.Debugf("[IDENTITY] %v expires at: %v", ident.Email, ident.ExpiresAt)
+*/
+			log.Debugf("[IDENTITY] %v expires at: %v", claims.Attributes["email"][0], "+1h") // ident.ExpiresAt)
 
 			response := &SAMLAuthResponse{
-				Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: ident.Email},
+				Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: claims.Attributes["email"][0]},
 				Req:      *req,
 			}
-
+/*
 			if len(connector.GetClaimsToRoles()) != 0 {
 				if err := a.createSAMLUser(connector, ident, claims); err != nil {
 					return nil, trace.Wrap(err)
 				}
 			}
-
+*/
+			if err := a.createSAMLUser(connector, claims); err != nil {
+					return nil, trace.Wrap(err)
+			}
 			if !req.CheckUser {
+                                log.Infof("check user failed")
 				return response, nil
 			}
+                                log.Infof("check user not failed")
 
 			user, err := a.Identity.GetUserBySAMLIdentity(services.SAMLIdentity{
-				ConnectorID: req.ConnectorID, Email: ident.Email})
+				ConnectorID: req.ConnectorID, Email: claims.Attributes["email"][0],
+			})
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+                                log.Infof("getuserbysamlidentity cool")
 			response.Username = user.GetName()
+			log.Debugf("[IDENTITY] username %v", response.Username) // ident.ExpiresAt)
 
 			var roles services.RoleSet
 			roles, err = services.FetchRoles(user.GetRoles(), a.Access)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			sessionTTL := roles.AdjustSessionTTL(utils.ToTTL(a.clock, ident.ExpiresAt))
-			bearerTokenTTL := utils.MinTTL(BearerTokenTTL, sessionTTL)
+			// sessionTTL := a.clock.Now().UTC().Add(time.Duration(3600)*time.Second) // roles.AdjustSessionTTL(utils.ToTTL(a.clock, ident.ExpiresAt))
+			bearerTokenTTL := BearerTokenTTL // utils.MinTTL(BearerTokenTTL, sessionTTL)
 
 			if req.CreateWebSession {
 				sess, err := a.NewWebSession(user.GetName())
@@ -1313,7 +1319,7 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 					return nil, trace.Wrap(err)
 				}
 				// session will expire based on identity TTL and allowed session TTL
-				sess.SetExpiryTime(a.clock.Now().UTC().Add(sessionTTL))
+				sess.SetExpiryTime(a.clock.Now().UTC().Add(time.Duration(3600)*time.Second))
 				// bearer token will expire based on the expected session renewal
 				sess.SetBearerTokenExpiryTime(a.clock.Now().UTC().Add(bearerTokenTTL))
 				if err := a.UpsertWebSession(user.GetName(), sess); err != nil {
@@ -1321,9 +1327,10 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 				}
 				response.Session = sess
 			}
+			log.Debugf("after createwebsession [IDENTITY] username %v", response.Username) // ident.ExpiresAt)
 
 			if len(req.PublicKey) != 0 {
-				certTTL := utils.MinTTL(utils.ToTTL(a.clock, ident.ExpiresAt), req.CertTTL)
+				certTTL := req.CertTTL // utils.MinTTL(utils.ToTTL(a.clock, ident.ExpiresAt), req.CertTTL)
 				allowedLogins, err := roles.CheckLogins(certTTL)
 				if err != nil {
 					return nil, trace.Wrap(err)
@@ -1343,8 +1350,8 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 				}
 			}
 
-			return response, nil */
-	return nil, nil
+			log.Debugf("beforereturn [IDENTITY] username %v", response.Username) // ident.ExpiresAt)
+			return response, nil
 }
 
 func (a *AuthServer) DeleteRole(name string) error {

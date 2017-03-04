@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+        log "github.com/Sirupsen/logrus"
 
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/utils"
@@ -241,7 +242,7 @@ const UserSpecV2SchemaTemplate = `{
         "type": "string"
       }
     },
-    "oidc_identities": {
+    "saml_identities": {
       "type": "array",
       "items": %v
     },
@@ -318,6 +319,7 @@ func (u *UserV2) GetIdentities() []OIDCIdentity {
 
 // GetIdentities returns a list of connected OIDCIdentities
 func (u *UserV2) GetIdentitiesSAML() []SAMLIdentity {
+        log.Infof("in GetI %v", u.Spec.SAMLIdentities)
 	return u.Spec.SAMLIdentities
 }
 
@@ -342,7 +344,8 @@ func (u *UserV2) GetName() string {
 }
 
 func (u *UserV2) String() string {
-	return fmt.Sprintf("User(name=%v, roles=%v, identities=%v,%v)", u.Metadata.Name, u.Spec.Roles, u.Spec.OIDCIdentities, u.Spec.SAMLIdentities)
+	return fmt.Sprintf("User(name=%v, roles=%v, identities=%v)", u.Metadata.Name, u.Spec.Roles, u.Spec.SAMLIdentities)
+	// return fmt.Sprintf("User(name=%v, roles=%v, identities=%v)", u.Metadata.Name, u.Spec.Roles, u.Spec.OIDCIdentities) TID bad 
 }
 
 func (u *UserV2) SetLocked(until time.Time, reason string) {

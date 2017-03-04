@@ -22,7 +22,6 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"encoding/xml"
 	"fmt"
 	"html/template"
@@ -38,7 +37,6 @@ import (
 
 	"github.com/crewjam/saml"
 	"github.com/crewjam/saml/samlsp"
-	jwt "github.com/dgrijalva/jwt-go"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
@@ -136,20 +134,9 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	key, _ := ioutil.ReadFile("/etc/teleport/sp.key")
-	cert, _ := ioutil.ReadFile("/etc/teleport/sp.cert")
-	tmpsp, _ := samlsp.New(samlsp.Options{
-		IDPMetadataURL: "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
-		URL:            "https://auth2.dashlane.com:3080/v1/webapi",
-		Key:            string(key),
-		Certificate:    string(cert),
-	})
-	tmpsp.ServiceProvider.AuthnNameIDFormat = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
-	// tmpsp.AuthnNameIDFormat = UnspecifiedNameIDFormat
 	h := &Handler{
 		cfg:  cfg,
 		auth: lauth,
-		sp:   tmpsp,
 	}
 
 	for _, o := range opts {
@@ -217,9 +204,7 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	h.GET("/webapi/saml/login/web", httplib.MakeHandler(h.samlLoginWeb))
 	h.POST("/webapi/saml/login/console", httplib.MakeHandler(h.samlLoginConsole))
 	h.POST("/webapi/saml/callback", httplib.MakeHandler(h.samlCallback))
-
 	h.GET("/webapi/saml/metadata", httplib.MakeHandler(h.samlMetadata))
-	// h.GET("/webapi/saml/auth", httplib.MakeHandler(h.samlAuth))
 	// h.POST("/webapi/saml/acs", httplib.MakeHandler(h.samlCallback))
 
 	// U2F related APIs
@@ -621,82 +606,6 @@ func (m *Handler) samlMetadata(w http.ResponseWriter, r *http.Request, p httprou
 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
 	w.Write(buf)
 	return nil, nil
-}
-
-func (m *Handler) samlAuth(w http.ResponseWriter, r *http.Request, p httprouter.Params) (interface{}, error) {
-	log.Infof("in samlAuth")
-
-	if m.sp.IsAuthorized(r) {
-		message("kapou")
-
-		fmt.Fprintf(w, "Hello, %s!\nGroups:", r.Header.Get("X-Saml-Cn"))
-		// groups := r.Header["X-Saml-Blahgroup"]
-		for _, group := range r.Header["X-Saml-Blahgroup"] {
-			fmt.Fprintf(w, "%s,", group)
-			return nil, nil
-		}
-	}
-	// If we try to redirect when the original request is the ACS URL we'll
-	// end up in a loop. This is a programming error, so we panic here. In
-	// general this means a 500 to the user, which is preferable to a
-	// redirect loop.
-
-	binding := saml.HTTPRedirectBinding
-	bindingLocation := m.sp.ServiceProvider.GetSSOBindingLocation(binding)
-	if bindingLocation == "" {
-		binding = saml.HTTPPostBinding
-		bindingLocation = m.sp.ServiceProvider.GetSSOBindingLocation(binding)
-	}
-
-	req, err := m.sp.ServiceProvider.MakeAuthenticationRequest(bindingLocation)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return nil, nil
-	}
-
-	// relayState is limited to 80 bytes but also must be integrety protected.
-	// this means that we cannot use a JWT because it is way to long. Instead
-	// we set a cookie that corresponds to the state
-	relayState := base64.URLEncoding.EncodeToString(randomBytes(42))
-
-	secretBlock, _ := pem.Decode([]byte(m.sp.ServiceProvider.Key))
-	state := jwt.New(jwt.GetSigningMethod("HS256"))
-	claims := state.Claims.(jwt.MapClaims)
-	claims["id"] = req.ID
-	claims["uri"] = r.URL.String()
-	signedState, err := state.SignedString(secretBlock.Bytes)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return nil, nil
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     fmt.Sprintf("saml_%s", relayState),
-		Value:    signedState,
-		MaxAge:   int(saml.MaxIssueDelay.Seconds()),
-		HttpOnly: false,
-		Path:     "/", // /v1/webapi/saml/acs",
-	})
-
-	if binding == saml.HTTPRedirectBinding {
-		redirectURL := req.Redirect(relayState)
-		w.Header().Add("Location", redirectURL.String())
-		w.WriteHeader(http.StatusFound)
-		return nil, nil
-	}
-	if binding == saml.HTTPPostBinding {
-		w.Header().Set("Content-Security-Policy", ""+
-			"default-src; "+
-			"script-src 'sha256-D8xB+y+rJ90RmLdP72xBqEEc0NUatn7yuCND0orkrgk='; "+
-			"reflected-xss block; "+
-			"referrer no-referrer;")
-		w.Header().Add("Content-type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html><html><body>`))
-		w.Write(req.Post(relayState))
-		w.Write([]byte(`</body></html>`))
-		return nil, nil
-	}
-	panic("not reached")
 }
 
 // ConstructSSHResponseSAML creates a special SSH response for SSH login method

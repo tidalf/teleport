@@ -1163,8 +1163,7 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 	stateToken := q.Get("RelayState")
         if stateToken == "" {
                 log.Info ("no stateToken :(")
-		return nil, nil // trace.OAuth2(
-		//	oauth2.ErrorInvalidRequest, "missing state query param", q)
+		return nil, nil
 	}
                 log.Info ("we have a stateToken", stateToken )
 

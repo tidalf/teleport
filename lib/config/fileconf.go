@@ -638,10 +638,10 @@ type SAMLConnector struct {
 	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
 	IssuerURL string `yaml:"issuer_url"`
 	// ClientID is id for authentication client (in our case it's our Auth server)
-	ClientID string `yaml:"client_id"`
+	PathCert string `yaml:"path_cert"`
 	// ClientSecret is used to authenticate our client and should not
 	// be visible to end user
-	ClientSecret string `yaml:"client_secret"`
+	PathKey string `yaml:"path_key"`
 	// RedirectURL - Identity provider will use this URL to redirect
 	// client's browser back to it after successfull authentication
 	// Should match the URL on Provider's side
@@ -701,8 +701,8 @@ func (o *SAMLConnector) Parse() (services.SAMLConnector, error) {
 		ID:            o.ID,
 		Display:       o.Display,
 		IssuerURL:     o.IssuerURL,
-		ClientID:      o.ClientID,
-		ClientSecret:  o.ClientSecret,
+		PathCert:      o.PathCert,
+		PathKey:       o.PathKey,
 		RedirectURL:   o.RedirectURL,
 		Scope:         o.Scope,
 		ClaimsToRoles: mappings,

@@ -56,9 +56,9 @@ type SAMLConnector interface {
 	// Check checks SAML connector for errors
 	Check() error
 	// SetClientSecret sets client secret to some value
-	SetClientSecret(secret string)
+	SetPathCert(secret string)
 	// SetClientID sets id for authentication client (in our case it's our Auth server)
-	SetClientID(string)
+	SetPathKey(string)
 	// SetName sets a provider name
 	SetName(string)
 	// SetIssuerURL sets the endpoint of the provider
@@ -185,6 +185,8 @@ func (o *SAMLConnectorV2) V1() *SAMLConnectorV1 {
 	return &SAMLConnectorV1{
 		ID:            o.Metadata.Name,
 		IssuerURL:     o.Spec.IssuerURL,
+		PathCert:      o.Spec.PathCert,
+		PathKey:       o.Spec.PathKey,
 		RedirectURL:   o.Spec.RedirectURL,
 		Display:       o.Spec.Display,
 		Scope:         o.Spec.Scope,
@@ -223,13 +225,13 @@ func (o *SAMLConnectorV2) SetClaimsToRoles(claims []ClaimMapping) {
 }
 
 // SetClientID sets id for authentication client (in our case it's our Auth server)
-func (o *SAMLConnectorV2) SetClientID(clintID string) {
-	o.Spec.ClientID = clintID
+func (o *SAMLConnectorV2) SetPathCert(path_cert string) {
+	o.Spec.PathCert = path_cert
 }
 
 // SetClientSecret sets client secret to some value
-func (o *SAMLConnectorV2) SetClientSecret(secret string) {
-	o.Spec.ClientSecret = secret
+func (o *SAMLConnectorV2) SetPathKey(path_key string) {
+	o.Spec.PathCert = path_key
 }
 
 // ID is a provider id, 'e.g.' google, used internally
@@ -398,6 +400,8 @@ type SAMLConnectorV1 struct {
 	ID string `json:"id"`
 	// Issuer URL is the endpoint of the provider, e.g. https://accounts.google.com
 	IssuerURL string `json:"issuer_url"`
+	PathCert string `json:"path_cert"`
+	PathKey  string `json:"path_key"`
 	// ClientID is id for authentication client (in our case it's our Auth server)
 	RedirectURL string `json:"redirect_url"`
 	// Display - Friendly name for this provider.

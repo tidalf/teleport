@@ -313,7 +313,7 @@ func Init(cfg InitConfig, seedConfig bool) (*AuthServer, *Identity, error) {
 		connectors, _ := asrv.GetSAMLConnectors(false)
 		for _, connector := range connectors {
 			_, configured := keepMap[connector.GetName()]
-			if !configured && connector.GetClientID()==""  {
+			if !configured && connector.GetPathCert()!=""  {
 				if err = asrv.DeleteSAMLConnector(connector.GetName()); err != nil {
 					return nil, nil, trace.Wrap(err)
 				}

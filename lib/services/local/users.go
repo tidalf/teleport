@@ -645,9 +645,6 @@ func (s *IdentityService) GetSAMLConnector(id string, withSecrets bool) (service
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if !withSecrets {
-		conn.SetClientSecret("")
-	}
 	return conn, nil
 }
 

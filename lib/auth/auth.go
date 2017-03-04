@@ -961,12 +961,11 @@ func (a *AuthServer) ValidateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*samlsp.Middleware, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-
-	key, _ := ioutil.ReadFile("/etc/teleport/sp.key")
-	cert, _ := ioutil.ReadFile("/etc/teleport/sp.cert")
+	key,_ := ioutil.ReadFile(conn.GetPathKey())
+	cert,_ := ioutil.ReadFile(conn.GetPathCert())
 	config := samlsp.Options{
-		IDPMetadataURL: "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
-		URL:            "https://auth2.dashlane.com:3080/v1/webapi",
+		IDPMetadataURL:	conn.GetIssuerURL(), // "https://fs.dashlane.com/FederationMetadata/2007-06/FederationMetadata.xml",
+		URL:		conn.GetRedirectURL(),
 		Key:            string(key),
 		Certificate:    string(cert),
 	}

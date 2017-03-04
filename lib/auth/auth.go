@@ -1067,8 +1067,7 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 	// online is SAML online scope, "select_account" forces user to always select account
 	// redirectURL := oauthClient.AuthCodeURL(req.StateToken, "online", "select_account")
 	req.RedirectURL = redirectURL.String()
-
-	log.Debugf("re.RedirectURL %s", req.RedirectURL)
+        log.Debugf("re.RedirectURL %s", req.RedirectURL)
 
 	err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)
 	if err != nil {
@@ -1097,7 +1096,15 @@ type SAMLAuthResponse struct {
 
 func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, claims TokenClaims) error {
 	// roles := connector.MapClaims(claims)
-        roles := []string{"admin","users"}
+        roles := []string{}
+        for _, b := range claims.Attributes["adgroups"]  {
+           if b == "ssh_admins" {
+              roles = []string{"admin","users"}
+           }
+        }
+        if len(roles) == 0 {
+	   return trace.AccessDenied("access denied to %v", claims.Attributes["email"][0])
+        }
 	/* if len(roles) == 0 {
 		log.Warningf("[SAML] could not find any of expected claims: %v in the set returned by provider %v: %v",
 			strings.Join(connector.GetClaims(), ","), connector.GetName(), strings.Join(services.GetClaimNames(claims), ","))
@@ -1147,7 +1154,7 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, claims Tok
 			return trace.AlreadyExists("user %v already exists and is not SAML user", existingUser.GetName())
 		}
 	}
-	return a.UpsertUser(user) 
+	return a.UpsertUser(user)
 }
 
 type TokenClaims struct {
@@ -1234,49 +1241,18 @@ func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, 
 			}
 		}
 	}
-	//signedToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256,
-	//	claims).SignedString(secretBlock.Bytes)
 	if err != nil {
 		panic(err)
 	}
-          /*
-		log.Infof("oidcCallback redirecting to web browser")
-		if err := SetSession(w, response.Username, response.Session.GetName()); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		http.Redirect(w, r, response.Req.ClientRedirectURL, http.StatusFound)
-		return nil, nil
-	} */
+        for _, group := range claims.Attributes["adgroups"] {
+          log.Infof("groups:%v", group)
+        }
+	log.Debugf("[IDENTITY] %v expires at: %v", claims.Attributes["email"][0], "+1h") // ident.ExpiresAt)
 
-	//
-
-	// http.Redirect(w, r, redirectURI, http.StatusFound)
-
-	/* tok, err := samlClient.ExchangeAuthCode(code)
-	if err != nil {
-		return nil, trace.OAuth2(
-			oauth2.ErrorUnsupportedResponseType,
-			"unable to verify auth code with issuer", q)
-	} */
-	/*
-		claims, err := tok.Claims()
-		if err != nil {
-			return nil, trace.OAuth2(
-				oauth2.ErrorUnsupportedResponseType, "unable to construct claims", q)
-		}
-
-			ident, err := saml.IdentityFromClaims(claims)
-			if err != nil {
-				return nil, trace.OAuth2(
-					oauth2.ErrorUnsupportedResponseType, "unable to convert claims to identity", q)
-			}
-*/
-			log.Debugf("[IDENTITY] %v expires at: %v", claims.Attributes["email"][0], "+1h") // ident.ExpiresAt)
-
-			response := &SAMLAuthResponse{
-				Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: claims.Attributes["email"][0]},
-				Req:      *req,
-			}
+	response := &SAMLAuthResponse{
+		    Identity: services.SAMLIdentity{ConnectorID: connector.GetName(), Email: claims.Attributes["email"][0]},
+		    Req:      *req,
+		    }
 /*
 			if len(connector.GetClaimsToRoles()) != 0 {
 				if err := a.createSAMLUser(connector, ident, claims); err != nil {

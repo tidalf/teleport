@@ -509,6 +509,7 @@ func (m *Handler) samlCallback(w http.ResponseWriter, r *http.Request, p httprou
 	}
 	log.Infof("samlCallback redirecting to console login")
 	if len(response.Req.PublicKey) == 0 {
+	        http.Redirect(w, r, "/", http.StatusFound)
 		return nil, trace.BadParameter("not a web or console saml login request")
 	}
 	redirectURL, err := ConstructSSHResponseSAML(response)

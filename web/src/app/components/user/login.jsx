@@ -40,6 +40,11 @@ const Login = React.createClass({
     actions.loginWithOidc(providerName, redirect);
   },
 
+  onLoginWithSaml(providerName){
+    let redirect = this.getRedirectUrl();
+    actions.loginWithSaml(providerName, redirect);
+  },
+
   onLoginWithU2f(username, password) {
     let redirect = this.getRedirectUrl();            
     actions.loginWithU2f(username, password, redirect);
@@ -76,6 +81,7 @@ const Login = React.createClass({
               auth2faType={auth2faType}
               authType={authType}              
               onLoginWithOidc={this.onLoginWithOidc}
+              onLoginWithSaml={this.onLoginWithSaml}
               onLoginWithU2f={this.onLoginWithU2f}
               onLogin={this.onLogin}              
               attemp={attemp}
@@ -116,6 +122,10 @@ const LoginInputForm = React.createClass({
       
   onLoginWithOidc(providerName) {    
     this.props.onLoginWithOidc(providerName);
+  },
+
+  onLoginWithSaml(providerName) {
+    this.props.onLoginWithSaml(providerName);
   },
 
   isValid() {
@@ -217,17 +227,23 @@ const LoginInputForm = React.createClass({
   renderSsoBtns() {    
     let { authType, authProviders, attemp } = this.props;
 
-    if (authType !== AuthTypeEnum.OIDC) {
-      return null;
-    }
-        
-    return (
-      <SsoBtnList
-        prefixText="Login with "
-        isDisabled={attemp.isProcessing}
-        providers={authProviders}
-        onClick={this.onLoginWithOidc} />
-    )    
+    if (authType == AuthTypeEnum.OIDC) {
+      return (
+        <SsoBtnList
+          prefixText="Login with "
+          isDisabled={attemp.isProcessing}
+          providers={authProviders}
+          onClick={this.onLoginWithOidc} />
+      )
+    } else if (authType == AuthTypeEnum.SAML) {
+        return (
+          <SsoBtnList
+            prefixText="Login with "
+            isDisabled={attemp.isProcessing}
+            providers={authProviders}
+            onClick={this.onLoginWithSaml} />
+        )
+      }
   },
 
   render() {
@@ -263,6 +279,7 @@ LoginInputForm.propTypes = {
   auth2faType: React.PropTypes.string,
   authType: React.PropTypes.string,
   onLoginWithOidc: React.PropTypes.func.isRequired,
+  onLoginWithSaml: React.PropTypes.func.isRequired,
   onLoginWithU2f: React.PropTypes.func.isRequired,
   onLogin: React.PropTypes.func.isRequired,
   attemp: React.PropTypes.object.isRequired

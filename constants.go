@@ -72,6 +72,9 @@ const (
 	// ConnectorOIDC means connector type OIDC
 	ConnectorOIDC = "oidc"
 
+	// ConnectorSAML means connector type SAML
+	ConnectorSAML = "saml"
+
 	// DataDirParameterName is the name of the data dir configuration parameter passed
 	// to all backends during initialization
 	DataDirParameterName = "data_dir"
@@ -100,6 +103,9 @@ const (
 
 	// OIDC means authentication will happen remotly using an OIDC connector.
 	OIDC = "oidc"
+
+	// SAML means authentication will happen remotly using an SAML connector.
+	SAML = "saml"
 )
 
 const (

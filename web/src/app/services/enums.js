@@ -8,6 +8,7 @@ export default {
   AuthTypeEnum: {
     LOCAL: 'local',
     OIDC: 'oidc',
+    SAML: 'saml',
     LDAP: 'ldap'
   },
 

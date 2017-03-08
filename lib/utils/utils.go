@@ -26,12 +26,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+        jwt "github.com/dgrijalva/jwt-go"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/ssh"
 )
+type TokenClaims struct {
+        jwt.StandardClaims
+        Attributes map[string][]string `json:"attr"`
+}
 
 func CopyStrings(in []string) []string {
 	if in == nil {

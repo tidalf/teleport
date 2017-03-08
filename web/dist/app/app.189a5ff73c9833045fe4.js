@@ -49,7 +49,7 @@ webpackJsonp([0],[
 
 	var _terminalHost2 = _interopRequireDefault(_terminalHost);
 
-	var _playerHost = __webpack_require__(493);
+	var _playerHost = __webpack_require__(492);
 
 	var _playerHost2 = _interopRequireDefault(_playerHost);
 
@@ -67,11 +67,11 @@ webpackJsonp([0],[
 
 	var _reactor2 = _interopRequireDefault(_reactor);
 
-	var _documentTitle = __webpack_require__(524);
+	var _documentTitle = __webpack_require__(523);
 
 	var _documentTitle2 = _interopRequireDefault(_documentTitle);
 
-	__webpack_require__(525);
+	__webpack_require__(524);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -1203,6 +1203,7 @@ webpackJsonp([0],[
 
 	  api: {
 	    sso: '/v1/webapi/oidc/login/web?redirect_url=:redirect&connector_id=:provider',
+	    ssoSaml: '/v1/webapi/saml/login/web?redirect_url=:redirect&connector_id=:provider',
 	    renewTokenPath: '/v1/webapi/sessions/renew',
 	    sessionPath: '/v1/webapi/sessions',
 	    userStatus: '/v1/webapi/user/status',
@@ -1237,6 +1238,9 @@ webpackJsonp([0],[
 	    },
 	    getSsoUrl: function getSsoUrl(redirect, provider) {
 	      return cfg.baseUrl + (0, _patternUtils.formatPattern)(cfg.api.sso, { redirect: redirect, provider: provider });
+	    },
+	    getSsoSamlUrl: function getSsoSamlUrl(redirect, provider) {
+	      return cfg.baseUrl + (0, _patternUtils.formatPattern)(cfg.api.ssoSaml, { redirect: redirect, provider: provider });
 	    },
 	    getSiteEventsFilterUrl: function getSiteEventsFilterUrl(_ref) {
 	      var start = _ref.start,
@@ -1303,7 +1307,7 @@ webpackJsonp([0],[
 	    return (0, _patternUtils.formatPattern)(cfg.routes.currentSession, { sid: sid, siteId: siteId });
 	  },
 	  getAuthProviders: function getAuthProviders() {
-	    return cfg.auth && cfg.auth.oidc ? [cfg.auth.oidc] : [];
+	    if (cfg.auth.oidc) return [cfg.auth.oidc];else if (cfg.auth.saml) return [cfg.auth.saml];else return [];
 	  },
 	  getAuthType: function getAuthType() {
 	    return cfg.auth ? cfg.auth.type : null;
@@ -4848,6 +4852,10 @@ webpackJsonp([0],[
 	    var redirect = this.getRedirectUrl();
 	    _user.actions.loginWithOidc(providerName, redirect);
 	  },
+	  onLoginWithSaml: function onLoginWithSaml(providerName) {
+	    var redirect = this.getRedirectUrl();
+	    _user.actions.loginWithSaml(providerName, redirect);
+	  },
 	  onLoginWithU2f: function onLoginWithU2f(username, password) {
 	    var redirect = this.getRedirectUrl();
 	    _user.actions.loginWithU2f(username, password, redirect);
@@ -4887,6 +4895,7 @@ webpackJsonp([0],[
 	            auth2faType: auth2faType,
 	            authType: authType,
 	            onLoginWithOidc: this.onLoginWithOidc,
+	            onLoginWithSaml: this.onLoginWithSaml,
 	            onLoginWithU2f: this.onLoginWithU2f,
 	            onLogin: this.onLogin,
 	            attemp: attemp
@@ -4930,6 +4939,9 @@ webpackJsonp([0],[
 	  },
 	  onLoginWithOidc: function onLoginWithOidc(providerName) {
 	    this.props.onLoginWithOidc(providerName);
+	  },
+	  onLoginWithSaml: function onLoginWithSaml(providerName) {
+	    this.props.onLoginWithSaml(providerName);
 	  },
 	  isValid: function isValid() {
 	    var $form = (0, _jQuery2.default)(this.refs.form);
@@ -5042,15 +5054,19 @@ webpackJsonp([0],[
 	        attemp = _props.attemp;
 
 
-	    if (authType !== _enums.AuthTypeEnum.OIDC) {
-	      return null;
+	    if (authType == _enums.AuthTypeEnum.OIDC) {
+	      return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
+	        prefixText: 'Login with ',
+	        isDisabled: attemp.isProcessing,
+	        providers: authProviders,
+	        onClick: this.onLoginWithOidc });
+	    } else if (authType == _enums.AuthTypeEnum.SAML) {
+	      return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
+	        prefixText: 'Login with ',
+	        isDisabled: attemp.isProcessing,
+	        providers: authProviders,
+	        onClick: this.onLoginWithSaml });
 	    }
-
-	    return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
-	      prefixText: 'Login with ',
-	      isDisabled: attemp.isProcessing,
-	      providers: authProviders,
-	      onClick: this.onLoginWithOidc });
 	  },
 	  render: function render() {
 	    var _props$attemp = this.props.attemp,
@@ -5099,6 +5115,7 @@ webpackJsonp([0],[
 	  auth2faType: _react2.default.PropTypes.string,
 	  authType: _react2.default.PropTypes.string,
 	  onLoginWithOidc: _react2.default.PropTypes.func.isRequired,
+	  onLoginWithSaml: _react2.default.PropTypes.func.isRequired,
 	  onLoginWithU2f: _react2.default.PropTypes.func.isRequired,
 	  onLogin: _react2.default.PropTypes.func.isRequired,
 	  attemp: _react2.default.PropTypes.object.isRequired
@@ -5243,6 +5260,10 @@ webpackJsonp([0],[
 	  loginWithOidc: function loginWithOidc(provider, redirect) {
 	    var fullPath = _config2.default.getFullUrl(redirect);
 	    _auth2.default.redirect(_config2.default.api.getSsoUrl(fullPath, provider));
+	  },
+	  loginWithSaml: function loginWithSaml(provider, redirect) {
+	    var fullPath = _config2.default.getFullUrl(redirect);
+	    _auth2.default.redirect(_config2.default.api.getSsoSamlUrl(fullPath, provider));
 	  },
 	  loginWithU2f: function loginWithU2f(user, password, redirect) {
 	    var promise = _auth2.default.loginWithU2f(user, password);
@@ -5554,6 +5575,7 @@ webpackJsonp([0],[
 	  AuthTypeEnum: {
 	    LOCAL: 'local',
 	    OIDC: 'oidc',
+	    SAML: 'saml',
 	    LDAP: 'ldap'
 	  },
 
@@ -8752,7 +8774,7 @@ webpackJsonp([0],[
 
 	var _terminal2 = _interopRequireDefault(_terminal);
 
-	var _getters = __webpack_require__(481);
+	var _getters = __webpack_require__(480);
 
 	var _getters2 = _interopRequireDefault(_getters);
 
@@ -8760,11 +8782,11 @@ webpackJsonp([0],[
 
 	var _indicator2 = _interopRequireDefault(_indicator);
 
-	var _actions = __webpack_require__(482);
+	var _actions = __webpack_require__(481);
 
-	var _actions2 = __webpack_require__(484);
+	var _actions2 = __webpack_require__(483);
 
-	var _terminalPartyList = __webpack_require__(486);
+	var _terminalPartyList = __webpack_require__(485);
 
 	var _terminalPartyList2 = _interopRequireDefault(_terminalPartyList);
 
@@ -9028,38 +9050,54 @@ webpackJsonp([0],[
 
 	'use strict';
 
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	var _xterm = __webpack_require__(475);
 
-	/*
-	Copyright 2015 Gravitational, Inc.
+	var _xterm2 = _interopRequireDefault(_xterm);
 
-	Licensed under the Apache License, Version 2.0 (the "License");
-	you may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+	var _tty = __webpack_require__(476);
 
-	    http://www.apache.org/licenses/LICENSE-2.0
+	var _tty2 = _interopRequireDefault(_tty);
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.
-	*/
+	var _ttyEvents = __webpack_require__(479);
 
-	var Term = __webpack_require__(475);
-	var Tty = __webpack_require__(477);
-	var TtyEvents = __webpack_require__(480);
+	var _ttyEvents2 = _interopRequireDefault(_ttyEvents);
 
-	var _require = __webpack_require__(400),
-	    debounce = _require.debounce,
-	    isNumber = _require.isNumber;
+	var _ = __webpack_require__(400);
 
-	var api = __webpack_require__(243);
-	var logger = __webpack_require__(230).create('terminal');
-	var $ = __webpack_require__(227);
+	var _api = __webpack_require__(243);
 
-	Term.colors[256] = '#252323';
+	var _api2 = _interopRequireDefault(_api);
 
+	var _logger = __webpack_require__(230);
+
+	var _logger2 = _interopRequireDefault(_logger);
+
+	var _jQuery = __webpack_require__(227);
+
+	var _jQuery2 = _interopRequireDefault(_jQuery);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } } /*
+	                                                                                                                                                          Copyright 2015 Gravitational, Inc.
+	                                                                                                                                                          
+	                                                                                                                                                          Licensed under the Apache License, Version 2.0 (the "License");
+	                                                                                                                                                          you may not use this file except in compliance with the License.
+	                                                                                                                                                          You may obtain a copy of the License at
+	                                                                                                                                                          
+	                                                                                                                                                              http://www.apache.org/licenses/LICENSE-2.0
+	                                                                                                                                                          
+	                                                                                                                                                          Unless required by applicable law or agreed to in writing, software
+	                                                                                                                                                          distributed under the License is distributed on an "AS IS" BASIS,
+	                                                                                                                                                          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	                                                                                                                                                          See the License for the specific language governing permissions and
+	                                                                                                                                                          limitations under the License.
+	                                                                                                                                                          */
+
+
+	_xterm2.default.colors[256] = '#252323';
+
+	var logger = _logger2.default.create('terminal');
 	var DISCONNECT_TXT = 'disconnected';
 	var GRV_CLASS = 'grv-terminal';
 	var WINDOW_RESIZE_DEBOUNCE_DELAY = 100;
@@ -9074,8 +9112,8 @@ webpackJsonp([0],[
 
 
 	    this.ttyParams = tty;
-	    this.tty = new Tty();
-	    this.ttyEvents = new TtyEvents();
+	    this.tty = new _tty2.default();
+	    this.ttyEvents = new _ttyEvents2.default();
 
 	    this.scrollBack = scrollBack;
 	    this.rows = undefined;
@@ -9083,16 +9121,16 @@ webpackJsonp([0],[
 	    this.term = null;
 	    this._el = options.el;
 
-	    this.debouncedResize = debounce(this._requestResize.bind(this), WINDOW_RESIZE_DEBOUNCE_DELAY);
+	    this.debouncedResize = (0, _.debounce)(this._requestResize.bind(this), WINDOW_RESIZE_DEBOUNCE_DELAY);
 	  }
 
 	  TtyTerminal.prototype.open = function open() {
 	    var _this = this;
 
-	    $(this._el).addClass(GRV_CLASS);
+	    (0, _jQuery2.default)(this._el).addClass(GRV_CLASS);
 
 	    // render termjs with default values (will be used to calculate the character size)
-	    this.term = new Term({
+	    this.term = new _xterm2.default({
 	      cols: 15,
 	      rows: 5,
 	      scrollback: this.scrollBack,
@@ -9117,9 +9155,7 @@ webpackJsonp([0],[
 	          w = _ref.w;
 	      return _this.resize(w, h);
 	    });
-	    this.tty.on('reset', function () {
-	      return _this.term.reset();
-	    });
+	    this.tty.on('reset', this.reset.bind(this));
 	    this.tty.on('close', this._processClose.bind(this));
 	    this.tty.on('data', this._processData.bind(this));
 
@@ -9140,14 +9176,18 @@ webpackJsonp([0],[
 	      this.term.removeAllListeners();
 	    }
 
-	    $(this._el).empty().removeClass(GRV_CLASS);
+	    (0, _jQuery2.default)(this._el).empty().removeClass(GRV_CLASS);
 
 	    window.removeEventListener('resize', this.debouncedResize);
 	  };
 
+	  TtyTerminal.prototype.reset = function reset() {
+	    this.term.reset();
+	  };
+
 	  TtyTerminal.prototype.resize = function resize(cols, rows) {
 	    // if not defined, use the size of the container
-	    if (!isNumber(cols) || !isNumber(rows)) {
+	    if (!(0, _.isNumber)(cols) || !(0, _.isNumber)(rows)) {
 	      var dim = this._getDimensions();
 	      cols = dim.cols;
 	      rows = dim.rows;
@@ -9205,7 +9245,7 @@ webpackJsonp([0],[
 	            w = _tmp$split[0],
 	            h = _tmp$split[1];
 
-	        if ($.isNumeric(w) && $.isNumeric(h)) {
+	        if (_jQuery2.default.isNumeric(w) && _jQuery2.default.isNumeric(h)) {
 	          w = Number(w);
 	          h = Number(h);
 
@@ -9251,7 +9291,8 @@ webpackJsonp([0],[
 
 	    logger.info('request new screen size', 'w:' + w + ' and h:' + h);
 
-	    api.put(url + '/sessions/' + sid, reqData).done(function () {
+	    this.resize(w, h);
+	    _api2.default.put(url + '/sessions/' + sid, reqData).done(function () {
 	      return logger.info('new screen size requested');
 	    }).fail(function (err) {
 	      return logger.error('request new screen size', err);
@@ -9259,8 +9300,8 @@ webpackJsonp([0],[
 	  };
 
 	  TtyTerminal.prototype._getDimensions = function _getDimensions() {
-	    var $container = $(this._el);
-	    var fakeRow = $('<div><span>&nbsp;</span></div>');
+	    var $container = (0, _jQuery2.default)(this._el);
+	    var fakeRow = (0, _jQuery2.default)('<div><span>&nbsp;</span></div>');
 
 	    $container.find('.terminal').append(fakeRow);
 	    // get div height
@@ -9326,17 +9367,16 @@ webpackJsonp([0],[
 
 /***/ },
 /* 475 */,
-/* 476 */,
-/* 477 */
+/* 476 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	exports.__esModule = true;
 
-	var _events = __webpack_require__(478);
+	var _events = __webpack_require__(477);
 
-	var _ttyEnums = __webpack_require__(479);
+	var _ttyEnums = __webpack_require__(478);
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -9414,7 +9454,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 478 */
+/* 477 */
 /***/ function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -9721,7 +9761,7 @@ webpackJsonp([0],[
 
 
 /***/ },
-/* 479 */
+/* 478 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -9750,16 +9790,16 @@ webpackJsonp([0],[
 	exports.StatusCodeEnum = StatusCodeEnum;
 
 /***/ },
-/* 480 */
+/* 479 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	exports.__esModule = true;
 
-	var _events = __webpack_require__(478);
+	var _events = __webpack_require__(477);
 
-	var _ttyEnums = __webpack_require__(479);
+	var _ttyEnums = __webpack_require__(478);
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -9831,7 +9871,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 481 */
+/* 480 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -9859,7 +9899,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 482 */
+/* 481 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -9913,7 +9953,7 @@ webpackJsonp([0],[
 
 	var logger = __webpack_require__(230).create('Current Session');
 
-	var _require = __webpack_require__(483),
+	var _require = __webpack_require__(482),
 	    TLPT_TERMINAL_OPEN = _require.TLPT_TERMINAL_OPEN,
 	    TLPT_TERMINAL_CLOSE = _require.TLPT_TERMINAL_CLOSE,
 	    TLPT_TERMINAL_SET_STATUS = _require.TLPT_TERMINAL_SET_STATUS;
@@ -10007,7 +10047,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 483 */
+/* 482 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10043,7 +10083,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 484 */
+/* 483 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10072,7 +10112,7 @@ webpackJsonp([0],[
 
 	var _getters2 = _interopRequireDefault(_getters);
 
-	var _actionTypes = __webpack_require__(485);
+	var _actionTypes = __webpack_require__(484);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -10138,7 +10178,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 485 */
+/* 484 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10174,7 +10214,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 486 */
+/* 485 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10185,7 +10225,7 @@ webpackJsonp([0],[
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _reactAddonsCssTransitionGroup = __webpack_require__(487);
+	var _reactAddonsCssTransitionGroup = __webpack_require__(486);
 
 	var _reactAddonsCssTransitionGroup2 = _interopRequireDefault(_reactAddonsCssTransitionGroup);
 
@@ -10248,13 +10288,13 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
+/* 486 */,
 /* 487 */,
 /* 488 */,
 /* 489 */,
 /* 490 */,
 /* 491 */,
-/* 492 */,
-/* 493 */
+/* 492 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10265,7 +10305,7 @@ webpackJsonp([0],[
 
 	var _jQuery2 = _interopRequireDefault(_jQuery);
 
-	var _jquery = __webpack_require__(494);
+	var _jquery = __webpack_require__(493);
 
 	var _jquery2 = _interopRequireDefault(_jquery);
 
@@ -10275,11 +10315,11 @@ webpackJsonp([0],[
 
 	var _nuclearJsReactAddons = __webpack_require__(219);
 
-	var _reactSlider = __webpack_require__(516);
+	var _reactSlider = __webpack_require__(515);
 
 	var _reactSlider2 = _interopRequireDefault(_reactSlider);
 
-	var _getters = __webpack_require__(517);
+	var _getters = __webpack_require__(516);
 
 	var _getters2 = _interopRequireDefault(_getters);
 
@@ -10287,9 +10327,9 @@ webpackJsonp([0],[
 
 	var _terminal2 = _interopRequireDefault(_terminal);
 
-	var _ttyPlayer = __webpack_require__(518);
+	var _ttyPlayer = __webpack_require__(517);
 
-	var _actions = __webpack_require__(484);
+	var _actions = __webpack_require__(483);
 
 	var _indicator = __webpack_require__(380);
 
@@ -10468,7 +10508,7 @@ webpackJsonp([0],[
 	  function Term(tty, el) {
 	    _classCallCheck(this, Term);
 
-	    var _this2 = _possibleConstructorReturn(this, _Terminal.call(this, { el: el, scrollBack: 0 }));
+	    var _this2 = _possibleConstructorReturn(this, _Terminal.call(this, { el: el, scrollBack: 1000 }));
 
 	    _this2.tty = tty;
 	    return _this2;
@@ -10488,6 +10528,7 @@ webpackJsonp([0],[
 	      return;
 	    }
 
+	    _Terminal.prototype.reset.call(this);
 	    _Terminal.prototype.resize.call(this, cols, rows);
 	    (0, _jQuery2.default)(this._el).perfectScrollbar('update');
 	  };
@@ -10537,6 +10578,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
+/* 493 */,
 /* 494 */,
 /* 495 */,
 /* 496 */,
@@ -10559,8 +10601,7 @@ webpackJsonp([0],[
 /* 513 */,
 /* 514 */,
 /* 515 */,
-/* 516 */,
-/* 517 */
+/* 516 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -10588,7 +10629,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 518 */
+/* 517 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -10617,14 +10658,14 @@ webpackJsonp([0],[
 	limitations under the License.
 	*/
 
-	var Tty = __webpack_require__(477);
+	var Tty = __webpack_require__(476);
 	var api = __webpack_require__(243);
 
 	var _require = __webpack_require__(245),
 	    showError = _require.showError;
 
 	var $ = __webpack_require__(227);
-	var Buffer = __webpack_require__(519).Buffer;
+	var Buffer = __webpack_require__(518).Buffer;
 
 	var logger = __webpack_require__(230).create('TtyPlayer');
 	var STREAM_START_INDEX = 0;
@@ -11045,12 +11086,12 @@ webpackJsonp([0],[
 	exports.Buffer = Buffer;
 
 /***/ },
+/* 518 */,
 /* 519 */,
 /* 520 */,
 /* 521 */,
 /* 522 */,
-/* 523 */,
-/* 524 */
+/* 523 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -11093,7 +11134,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 525 */
+/* 524 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -11102,15 +11143,15 @@ webpackJsonp([0],[
 
 	var _reactor2 = _interopRequireDefault(_reactor);
 
-	var _store = __webpack_require__(526);
+	var _store = __webpack_require__(525);
 
 	var _store2 = _interopRequireDefault(_store);
 
-	var _store3 = __webpack_require__(528);
+	var _store3 = __webpack_require__(527);
 
 	var _store4 = _interopRequireDefault(_store3);
 
-	var _store5 = __webpack_require__(529);
+	var _store5 = __webpack_require__(528);
 
 	var _store6 = _interopRequireDefault(_store5);
 
@@ -11137,20 +11178,20 @@ webpackJsonp([0],[
 	  'tlpt_terminal': _store2.default,
 	  'tlpt_player': _store4.default,
 	  'tlpt_user': __webpack_require__(387),
-	  'tlpt_user_invite': __webpack_require__(530),
+	  'tlpt_user_invite': __webpack_require__(529),
 	  'tlpt_user_acl': _store6.default,
-	  'tlpt_sites': __webpack_require__(531),
-	  'tlpt_nodes': __webpack_require__(532),
-	  'tlpt_rest_api': __webpack_require__(533),
-	  'tlpt_sessions_events': __webpack_require__(534),
-	  'tlpt_sessions_archived': __webpack_require__(535),
-	  'tlpt_sessions_active': __webpack_require__(536),
-	  'tlpt_sessions_filter': __webpack_require__(537),
-	  'tlpt_notifications': __webpack_require__(538)
+	  'tlpt_sites': __webpack_require__(530),
+	  'tlpt_nodes': __webpack_require__(531),
+	  'tlpt_rest_api': __webpack_require__(532),
+	  'tlpt_sessions_events': __webpack_require__(533),
+	  'tlpt_sessions_archived': __webpack_require__(534),
+	  'tlpt_sessions_active': __webpack_require__(535),
+	  'tlpt_sessions_filter': __webpack_require__(536),
+	  'tlpt_notifications': __webpack_require__(537)
 	});
 
 /***/ },
-/* 526 */
+/* 525 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -11160,7 +11201,7 @@ webpackJsonp([0],[
 
 	var _nuclearJs = __webpack_require__(241);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var _reactor = __webpack_require__(240);
 
@@ -11168,7 +11209,7 @@ webpackJsonp([0],[
 
 	var _getters = __webpack_require__(398);
 
-	var _actionTypes = __webpack_require__(483);
+	var _actionTypes = __webpack_require__(482);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -11254,7 +11295,7 @@ webpackJsonp([0],[
 	}
 
 /***/ },
-/* 527 */
+/* 526 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -16238,7 +16279,7 @@ webpackJsonp([0],[
 	}));
 
 /***/ },
-/* 528 */
+/* 527 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16248,13 +16289,13 @@ webpackJsonp([0],[
 
 	var _nuclearJs = __webpack_require__(241);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var _config = __webpack_require__(232);
 
 	var _config2 = _interopRequireDefault(_config);
 
-	var _actionTypes = __webpack_require__(485);
+	var _actionTypes = __webpack_require__(484);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -16355,7 +16396,7 @@ webpackJsonp([0],[
 	}
 
 /***/ },
-/* 529 */
+/* 528 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16364,7 +16405,7 @@ webpackJsonp([0],[
 
 	var _nuclearJs = __webpack_require__(241);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var _actionTypes = __webpack_require__(254);
 
@@ -16429,7 +16470,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 530 */
+/* 529 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16440,7 +16481,7 @@ webpackJsonp([0],[
 
 	var _actionTypes = __webpack_require__(386);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var Invite = new _immutable.Record({
 	  invite_token: '',
@@ -16478,7 +16519,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 531 */
+/* 530 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16489,7 +16530,7 @@ webpackJsonp([0],[
 
 	var _actionTypes = __webpack_require__(248);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var Site = (0, _immutable.Record)({
 	  name: null,
@@ -16528,7 +16569,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 532 */
+/* 531 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16583,7 +16624,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 533 */
+/* 532 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16641,7 +16682,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 534 */
+/* 533 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16699,7 +16740,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 535 */
+/* 534 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16708,7 +16749,7 @@ webpackJsonp([0],[
 
 	var _nuclearJs = __webpack_require__(241);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var _actionTypes = __webpack_require__(356);
 
@@ -16795,7 +16836,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 536 */
+/* 535 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16820,7 +16861,7 @@ webpackJsonp([0],[
 
 	var _nuclearJs = __webpack_require__(241);
 
-	var _immutable = __webpack_require__(527);
+	var _immutable = __webpack_require__(526);
 
 	var _actionTypes = __webpack_require__(356);
 
@@ -16904,7 +16945,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 537 */
+/* 536 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16960,7 +17001,7 @@ webpackJsonp([0],[
 	module.exports = exports['default'];
 
 /***/ },
-/* 538 */
+/* 537 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';

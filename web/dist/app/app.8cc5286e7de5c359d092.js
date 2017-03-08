@@ -1203,6 +1203,7 @@ webpackJsonp([0],[
 
 	  api: {
 	    sso: '/v1/webapi/oidc/login/web?redirect_url=:redirect&connector_id=:provider',
+	    ssoSaml: '/v1/webapi/saml/login/web?redirect_url=:redirect&connector_id=:provider',
 	    renewTokenPath: '/v1/webapi/sessions/renew',
 	    sessionPath: '/v1/webapi/sessions',
 	    userStatus: '/v1/webapi/user/status',
@@ -1237,6 +1238,9 @@ webpackJsonp([0],[
 	    },
 	    getSsoUrl: function getSsoUrl(redirect, provider) {
 	      return cfg.baseUrl + (0, _patternUtils.formatPattern)(cfg.api.sso, { redirect: redirect, provider: provider });
+	    },
+	    getSsoSamlUrl: function getSsoSamlUrl(redirect, provider) {
+	      return cfg.baseUrl + (0, _patternUtils.formatPattern)(cfg.api.ssoSaml, { redirect: redirect, provider: provider });
 	    },
 	    getSiteEventsFilterUrl: function getSiteEventsFilterUrl(_ref) {
 	      var start = _ref.start,
@@ -1303,7 +1307,7 @@ webpackJsonp([0],[
 	    return (0, _patternUtils.formatPattern)(cfg.routes.currentSession, { sid: sid, siteId: siteId });
 	  },
 	  getAuthProviders: function getAuthProviders() {
-	    return cfg.auth ? [cfg.auth.oidc] : [];
+	    if (cfg.auth.oidc) return [cfg.auth.oidc];else if (cfg.auth.saml) return [cfg.auth.saml];else return [];
 	  },
 	  getAuthType: function getAuthType() {
 	    return cfg.auth ? cfg.auth.type : null;
@@ -4848,6 +4852,10 @@ webpackJsonp([0],[
 	    var redirect = this.getRedirectUrl();
 	    _user.actions.loginWithOidc(providerName, redirect);
 	  },
+	  onLoginWithSaml: function onLoginWithSaml(providerName) {
+	    var redirect = this.getRedirectUrl();
+	    _user.actions.loginWithSaml(providerName, redirect);
+	  },
 	  onLoginWithU2f: function onLoginWithU2f(username, password) {
 	    var redirect = this.getRedirectUrl();
 	    _user.actions.loginWithU2f(username, password, redirect);
@@ -4887,6 +4895,7 @@ webpackJsonp([0],[
 	            auth2faType: auth2faType,
 	            authType: authType,
 	            onLoginWithOidc: this.onLoginWithOidc,
+	            onLoginWithSaml: this.onLoginWithSaml,
 	            onLoginWithU2f: this.onLoginWithU2f,
 	            onLogin: this.onLogin,
 	            attemp: attemp
@@ -4930,6 +4939,9 @@ webpackJsonp([0],[
 	  },
 	  onLoginWithOidc: function onLoginWithOidc(providerName) {
 	    this.props.onLoginWithOidc(providerName);
+	  },
+	  onLoginWithSaml: function onLoginWithSaml(providerName) {
+	    this.props.onLoginWithSaml(providerName);
 	  },
 	  isValid: function isValid() {
 	    var $form = (0, _jQuery2.default)(this.refs.form);
@@ -5042,15 +5054,19 @@ webpackJsonp([0],[
 	        attemp = _props.attemp;
 
 
-	    if (authType !== _enums.AuthTypeEnum.OIDC) {
-	      return null;
+	    if (authType == _enums.AuthTypeEnum.OIDC) {
+	      return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
+	        prefixText: 'Login with ',
+	        isDisabled: attemp.isProcessing,
+	        providers: authProviders,
+	        onClick: this.onLoginWithOidc });
+	    } else if (authType == _enums.AuthTypeEnum.SAML) {
+	      return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
+	        prefixText: 'Login with ',
+	        isDisabled: attemp.isProcessing,
+	        providers: authProviders,
+	        onClick: this.onLoginWithSaml });
 	    }
-
-	    return _react2.default.createElement(_ssoBtnList.SsoBtnList, {
-	      prefixText: 'Login with ',
-	      isDisabled: attemp.isProcessing,
-	      providers: authProviders,
-	      onClick: this.onLoginWithOidc });
 	  },
 	  render: function render() {
 	    var _props$attemp = this.props.attemp,
@@ -5099,6 +5115,7 @@ webpackJsonp([0],[
 	  auth2faType: _react2.default.PropTypes.string,
 	  authType: _react2.default.PropTypes.string,
 	  onLoginWithOidc: _react2.default.PropTypes.func.isRequired,
+	  onLoginWithSaml: _react2.default.PropTypes.func.isRequired,
 	  onLoginWithU2f: _react2.default.PropTypes.func.isRequired,
 	  onLogin: _react2.default.PropTypes.func.isRequired,
 	  attemp: _react2.default.PropTypes.object.isRequired
@@ -5243,6 +5260,10 @@ webpackJsonp([0],[
 	  loginWithOidc: function loginWithOidc(provider, redirect) {
 	    var fullPath = _config2.default.getFullUrl(redirect);
 	    _auth2.default.redirect(_config2.default.api.getSsoUrl(fullPath, provider));
+	  },
+	  loginWithSaml: function loginWithSaml(provider, redirect) {
+	    var fullPath = _config2.default.getFullUrl(redirect);
+	    _auth2.default.redirect(_config2.default.api.getSsoSamlUrl(fullPath, provider));
 	  },
 	  loginWithU2f: function loginWithU2f(user, password, redirect) {
 	    var promise = _auth2.default.loginWithU2f(user, password);
@@ -5554,6 +5575,7 @@ webpackJsonp([0],[
 	  AuthTypeEnum: {
 	    LOCAL: 'local',
 	    OIDC: 'oidc',
+	    SAML: 'saml',
 	    LDAP: 'ldap'
 	  },
 

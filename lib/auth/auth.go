@@ -1130,28 +1130,36 @@ func (a *AuthServer) createSAMLUser(connector services.SAMLConnector, claims uti
 // returned by SAML Provider, if everything checks out, auth server
 // will respond with SAMLAuthResponse, otherwise it will return error
 func (a *AuthServer) ValidateSAMLAuthCallback(q url.Values) (*SAMLAuthResponse, error) {
+        log.Debugf("validating saml callback")
 	stateToken := q.Get("RelayState")
 	if stateToken == "" {
 		return nil, nil
 	}
 
+        log.Debugf("state token ok")
 	req, err := a.Identity.GetSAMLAuthRequest(stateToken)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+        log.Debugf("get auth request ok")
 
 	connector, err := a.Identity.GetSAMLConnector(req.ConnectorID, true)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	log.Debugf("get saml connector")
 	samlClient, err := a.getSAMLClient(connector)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	log.Debugf("get saml client")
 	assertion, err := samlClient.ServiceProvider.ParseResponse(q, []string{"none", ""}) // fixme
 	if err != nil {
+                log.Debug(fmt.Errorf("cannot parse base64: %s", err))
 		return nil, trace.Wrap(err)
 	}
+	log.Debugf("parseresponse ok")
 	claims := utils.TokenClaims{}
 	claims.Audience = samlClient.ServiceProvider.Metadata().EntityID
 	claims.IssuedAt = assertion.IssueInstant.Unix()

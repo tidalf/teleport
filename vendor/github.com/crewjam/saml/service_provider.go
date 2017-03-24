@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"encoding/xml"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	xmlsec "github.com/crewjam/go-xmlsec"
 	"html/template"
 	"net/url"
@@ -338,13 +339,14 @@ func (sp *ServiceProvider) ParseResponse(q url.Values, possibleRequestIDs []stri
 		Now:      now,
 		Response: q.Get("SAMLResponse"),
 	}
-
+	log.Debugf("in parseresponse")
 	rawResponseBuf, err := base64.StdEncoding.DecodeString(q.Get("SAMLResponse"))
 	if err != nil {
 		retErr.PrivateErr = fmt.Errorf("cannot parse base64: %s", err)
 		return nil, retErr
 	}
 	retErr.Response = string(rawResponseBuf)
+	log.Debugf("in parseresponse2")
 
 	// do some validation first before we decrypt
 	resp := Response{}
@@ -357,6 +359,7 @@ func (sp *ServiceProvider) ParseResponse(q url.Values, possibleRequestIDs []stri
 		return nil, retErr
 	}
 
+	log.Debugf("in parseresponse3")
 	/*requestIDvalid := false
 	for _, possibleRequestID := range possibleRequestIDs {
 		if resp.InResponseTo == possibleRequestID {
@@ -381,30 +384,48 @@ func (sp *ServiceProvider) ParseResponse(q url.Values, possibleRequestIDs []stri
 		return nil, retErr
 	}
 
+	log.Debugf("in parseresponse4")
 	var assertion *Assertion
 	if resp.EncryptedAssertion == nil {
+		log.Debugf("in clear ass")
 		if err := xmlsec.Verify(sp.getIDPSigningCert(), rawResponseBuf,
 			xmlsec.SignatureOptions{
 				XMLID: []xmlsec.XMLIDOption{{
-					ElementName:      "Assertion",
-					ElementNamespace: "urn:oasis:names:tc:SAML:2.0:assertion",
+					ElementName:      "Response",
+					ElementNamespace: "urn:oasis:names:tc:SAML:2.0:protocol",
 					AttributeName:    "ID",
 				}},
 			}); err != nil {
-			retErr.PrivateErr = fmt.Errorf("failed to verify signature on response: %s", err)
-			return nil, retErr
+			if err := xmlsec.Verify(sp.getIDPSigningCert(), rawResponseBuf,
+				xmlsec.SignatureOptions{
+					XMLID: []xmlsec.XMLIDOption{{
+						ElementName:      "Assertion",
+						ElementNamespace: "urn:oasis:names:tc:SAML:2.0:assertion",
+						AttributeName:    "ID",
+					}},
+				}); err != nil {
+				log.Debugf("in clear ass %s", err)
+				retErr.PrivateErr = fmt.Errorf("failed to verify signature on response: %s", err)
+				return nil, retErr
+			}
 		}
+		log.Debugf("in parseresponse5")
 		assertion = resp.Assertion
 	}
 
+	log.Debugf("in parseresponse6")
 	// decrypt the response
 	if resp.EncryptedAssertion != nil {
+		log.Debugf("in parseresponse9")
 		plaintextAssertion, err := xmlsec.Decrypt([]byte(sp.Key), resp.EncryptedAssertion.EncryptedData)
 		if err != nil {
+			log.Debugf("in parseresponse9: %s", err)
 			retErr.PrivateErr = fmt.Errorf("failed to decrypt response: %s", err)
 			return nil, retErr
 		}
+		log.Debugf("in parseresponse7")
 		retErr.Response = string(plaintextAssertion)
+		log.Debugf("in parseresponse8")
 
 		if err := xmlsec.Verify(sp.getIDPSigningCert(), plaintextAssertion,
 			xmlsec.SignatureOptions{
@@ -422,7 +443,9 @@ func (sp *ServiceProvider) ParseResponse(q url.Values, possibleRequestIDs []stri
 		xml.Unmarshal(plaintextAssertion, assertion)
 	}
 
+	log.Debugf("in parseresponse before val")
 	if err := sp.validateAssertion(assertion, possibleRequestIDs, now); err != nil {
+		log.Debugf("in parseresponse error val %s", err)
 		retErr.PrivateErr = fmt.Errorf("assertion invalid: %s", err)
 		return nil, retErr
 	}

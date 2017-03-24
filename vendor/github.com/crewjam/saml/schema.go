@@ -144,6 +144,7 @@ var StatusSuccess = "urn:oasis:names:tc:SAML:2.0:status:Success"
 type EncryptedAssertion struct {
 	Assertion     *Assertion
 	EncryptedData []byte `xml:",innerxml"`
+	EncryptedKey []byte `xml:",innerxml"`
 }
 
 // Assertion represents the SAML object of the same name.

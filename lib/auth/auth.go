@@ -969,7 +969,7 @@ func (s *AuthServer) getSAMLClient(conn services.SAMLConnector) (*samlsp.Middlew
 	cert, _ := ioutil.ReadFile(conn.GetPathCert())
 	config := samlsp.Options{
 		IDPMetadataURL: conn.GetIssuerURL(),
-		URL:            conn.GetRedirectURL(),
+		URL:            "https://" + s.AuthServiceName + ":3080" + conn.GetRedirectURL(),
 		Key:            string(key),
 		Certificate:    string(cert),
 	}
@@ -1045,7 +1045,7 @@ func (s *AuthServer) CreateSAMLAuthRequest(req services.SAMLAuthRequest) (*servi
 	relayState := req.StateToken
 
 	redirectURL := req2.Redirect(relayState)
-	req.RedirectURL = redirectURL.String()
+        req.RedirectURL = redirectURL.String()
 	log.Debugf("re.RedirectURL %s", req.RedirectURL)
 
 	err = s.Identity.CreateSAMLAuthRequest(req, defaults.SAMLAuthRequestTTL)

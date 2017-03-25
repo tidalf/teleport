@@ -313,9 +313,9 @@ func (o *SAMLConnectorV2) Check() error {
 	if _, err := url.Parse(o.Spec.IssuerURL); err != nil {
 		return trace.BadParameter("IssuerURL: bad url: '%v'", o.Spec.IssuerURL)
 	}
-	if _, err := url.Parse(o.Spec.RedirectURL); err != nil {
+	/* if _, err := url.Parse(o.Spec.RedirectURL); err != nil {
 		return trace.BadParameter("RedirectURL: bad url: '%v'", o.Spec.RedirectURL)
-	}
+	} */
 	/* if o.Spec.ClientID == "" {
 		return trace.BadParameter("ClientID: missing client id")
 	}
